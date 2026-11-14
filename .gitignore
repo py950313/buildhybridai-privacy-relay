@@ -27,3 +27,6 @@ dist-ssr
 .env*.local
 .firebase/
 *-debug.log
+
+# prototype browser profiles and results with large blobs
+prototype/.profiles/

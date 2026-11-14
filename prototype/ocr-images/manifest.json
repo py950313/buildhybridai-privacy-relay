@@ -1,0 +1,98 @@
+[
+  {
+    "name": "01-screen.png",
+    "photo": false,
+    "expected": [
+      "王小明",
+      "xiaoming.wang@demo-corp.tw"
+    ],
+    "text": "請把第三季報表寄給王小明，他的信箱是 xiaoming.wang@demo-corp.tw。"
+  },
+  {
+    "name": "02-photo.png",
+    "photo": true,
+    "expected": [
+      "王小明",
+      "xiaoming.wang@demo-corp.tw"
+    ],
+    "text": "請把第三季報表寄給王小明，他的信箱是 xiaoming.wang@demo-corp.tw。"
+  },
+  {
+    "name": "03-screen.png",
+    "photo": false,
+    "expected": [
+      "陳志豪",
+      "台積電"
+    ],
+    "text": "我主管陳志豪下個月要離婚，所以他的客戶台積電的會議要由我代開。"
+  },
+  {
+    "name": "04-photo.png",
+    "photo": true,
+    "expected": [
+      "陳志豪",
+      "台積電"
+    ],
+    "text": "我主管陳志豪下個月要離婚，所以他的客戶台積電的會議要由我代開。"
+  },
+  {
+    "name": "05-screen.png",
+    "photo": false,
+    "expected": [
+      "林美玲",
+      "A123456789",
+      "民國七十三年三月十二日",
+      "第二型糖尿病"
+    ],
+    "text": "病人林美玲，身分證字號 A123456789，民國七十三年三月十二日生，診斷為第二型糖尿病。"
+  },
+  {
+    "name": "06-photo.png",
+    "photo": true,
+    "expected": [
+      "林美玲",
+      "A123456789",
+      "民國七十三年三月十二日",
+      "第二型糖尿病"
+    ],
+    "text": "病人林美玲，身分證字號 A123456789，民國七十三年三月十二日生，診斷為第二型糖尿病。"
+  },
+  {
+    "name": "07-screen.png",
+    "photo": false,
+    "expected": [
+      "Sarah",
+      "David Chen",
+      "david.chen@northwind-demo.com"
+    ],
+    "text": "Hi Sarah, please send the Q3 numbers to David Chen at david.chen@northwind-demo.com before Friday."
+  },
+  {
+    "name": "08-photo.png",
+    "photo": true,
+    "expected": [
+      "Sarah",
+      "David Chen",
+      "david.chen@northwind-demo.com"
+    ],
+    "text": "Hi Sarah, please send the Q3 numbers to David Chen at david.chen@northwind-demo.com before Friday."
+  },
+  {
+    "name": "09-screen.png",
+    "photo": false,
+    "expected": [
+      "Tom Becker",
+      "Acme Logistics"
+    ],
+    "text": "My manager Tom Becker is getting divorced next month, so I need to cover his client calls with Acme Logistics."
+  },
+  {
+    "name": "10-photo.png",
+    "photo": true,
+    "expected": [
+      "Tom Becker",
+      "Acme Logistics"
+    ],
+    "text": "My manager Tom Becker is getting divorced next month, so I need to cover his client calls with Acme Logistics."
+  }
+]

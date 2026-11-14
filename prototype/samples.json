@@ -1,0 +1,27 @@
+{
+  "_note": "Synthetic prototype samples. All names, numbers and addresses are fake. expected = strings that must be masked.",
+  "en": [
+    { "text": "Hi Sarah, please send the Q3 numbers to David Chen at david.chen@northwind-demo.com before Friday.", "expected": ["Sarah", "David Chen", "david.chen@northwind-demo.com"] },
+    { "text": "My manager Tom Becker is getting divorced next month, so I need to cover his client calls with Acme Logistics.", "expected": ["Tom Becker", "Acme Logistics"] },
+    { "text": "Patient Emily Ross, born 1984-03-12, was diagnosed with type 2 diabetes and prescribed metformin.", "expected": ["Emily Ross", "1984-03-12", "type 2 diabetes"] },
+    { "text": "Wire the deposit to account 4417-1234-5678-9113 and call me at +1 415 555 0142 if it fails.", "expected": ["4417-1234-5678-9113", "+1 415 555 0142"] },
+    { "text": "The lease for 221B Baker Street, London starts on 1 December; the tenant is Mark Ellis.", "expected": ["221B Baker Street, London", "Mark Ellis"] },
+    { "text": "Can you rewrite this email to be more polite? We are pushing the launch to next week.", "expected": [] },
+    { "text": "Jessica from Globex Corp said their CFO Raj Patel approved a salary of $185,000 for the role.", "expected": ["Jessica", "Globex Corp", "Raj Patel", "$185,000"] },
+    { "text": "Our client Lumen Health is under investigation; only Priya and Ken know about it.", "expected": ["Lumen Health", "Priya", "Ken"] },
+    { "text": "Reset the password for user jsmith@contoso-demo.org and notify John Smith by phone at 020 7946 0958.", "expected": ["jsmith@contoso-demo.org", "John Smith", "020 7946 0958"] },
+    { "text": "Summarize the attached meeting notes from Wednesday's sprint planning.", "expected": [] }
+  ],
+  "zh": [
+    { "text": "請把第三季報表寄給王小明，他的信箱是 xiaoming.wang@demo-corp.tw。", "expected": ["王小明", "xiaoming.wang@demo-corp.tw"] },
+    { "text": "我主管陳志豪下個月要離婚，所以他的客戶台積電的會議要由我代開。", "expected": ["陳志豪", "台積電"] },
+    { "text": "病人林美玲，身分證字號 A123456789，民國七十三年三月十二日生，診斷為第二型糖尿病。", "expected": ["林美玲", "A123456789", "民國七十三年三月十二日", "第二型糖尿病"] },
+    { "text": "訂金請匯到帳號 0123-456-789012，有問題打 0912-345-678 給我。", "expected": ["0123-456-789012", "0912-345-678"] },
+    { "text": "租約地址是台北市大安區和平東路一段 999 號 8 樓，房東是張偉。", "expected": ["台北市大安區和平東路一段 999 號 8 樓", "張偉"] },
+    { "text": "幫我把這封信改得客氣一點，產品上線要延到下週。", "expected": [] },
+    { "text": "鴻海的財務長李建國核准了這個職缺年薪 185 萬元。", "expected": ["鴻海", "李建國", "185 萬元"] },
+    { "text": "我們的客戶康健醫療正在被調查，目前只有佩珊和阿凱知道。", "expected": ["康健醫療", "佩珊", "阿凱"] },
+    { "text": "請重設帳號 chen.jy@demo-mail.tw 的密碼，並打 02-2345-6789 通知陳俊宇。", "expected": ["chen.jy@demo-mail.tw", "02-2345-6789", "陳俊宇"] },
+    { "text": "幫我摘要週三衝刺規劃會議的紀錄。", "expected": [] }
+  ]
+}

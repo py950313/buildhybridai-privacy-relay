@@ -1,0 +1,26 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Receipts hold statistics only: never original text, masked text, or hashes.
+    match /receipts/{id} {
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(
+             ['uid', 'scenario', 'route', 'provider', 'maskedCounts', 'inputChars', 'latencyMs', 'createdAt'])
+        && request.resource.data.keys().hasAll(
+             ['uid', 'scenario', 'route', 'provider', 'maskedCounts', 'inputChars', 'latencyMs', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.scenario in ['email', 'contract', 'health', 'free']
+        && request.resource.data.route in ['local', 'cloud']
+        && request.resource.data.provider in ['gemini', 'openai', 'anthropic', 'xai', 'copy']
+        && request.resource.data.maskedCounts is map
+        && request.resource.data.maskedCounts.size() <= 20
+        && request.resource.data.inputChars is int && request.resource.data.inputChars >= 0
+        && request.resource.data.latencyMs is int && request.resource.data.latencyMs >= 0
+        && request.resource.data.createdAt == request.time;
+      allow read, update, delete: if false;
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

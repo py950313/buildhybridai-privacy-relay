@@ -49,8 +49,17 @@ WebGPU. Nano numbers vary between runs (precision 0.846-0.88 on EN).
 | regex + GLiNER | 1.00 / 0.92 | 0.90 / 0.95 | ~0.12 s |
 | regex + GLiNER + Nano | 1.00 / 0.85 | 0.95 / 0.91 | ~1.4 s |
 
-Remaining misses and false positives:
-- ZH date of birth in ROC calendar (「民國七十三年三月十二日」) missed by every layer.
-- ZH full address missed by GLiNER (only part of it covered); Nano recovers it.
-- False positives: "email", "We" (GLiNER), "metformin" as MEDICAL and a meeting name as MEDICAL (Nano).
-- No Nano item ended up unlocated on these samples.
+First run misses: ZH date of birth in ROC calendar (「民國七十三年三月十二日生」) missed by every layer;
+ZH full address only partly covered by GLiNER. Fixed with two regex recognizers (user decision
+2026-11-15): dates of birth with a birth word nearby (西元, 民國, Chinese numerals, English
+months; a 「生」 right after the date counts) and Taiwan street addresses anchored on the 22
+county/city names and ending at 號 (addresses without a city stay with the model layers).
+
+| Layers (after the fix) | EN recall / precision | ZH recall / precision |
+|---|---|---|
+| regex only | 0.23 / 1.00 | 0.38 / 1.00 |
+| regex + GLiNER | 1.00 / 0.92 | 1.00 / 0.95 |
+| regex + GLiNER + Nano | 1.00 / 0.88 | 1.00 / 0.88 |
+
+Remaining false positives: "email", "We", 「訂金」 (GLiNER); whole non-sensitive sentences tagged
+OTHER by Nano. No Nano item ended up unlocated on these samples.

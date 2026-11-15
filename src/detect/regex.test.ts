@@ -56,6 +56,41 @@ describe('regex recognizers: 30 format cases', () => {
   });
 });
 
+// protects: dates of birth (西元, 民國, Chinese numerals, English) are masked only with a birth
+//   word nearby, and Taiwan street addresses are captured whole, starting at the city.
+// fails_when: ordinary dates get masked as DOB, the address match starts mid-sentence
+//   ("寄到台北市..."), or it stops short of the floor number.
+// no_claim: addresses without a county/city name (left to GLiNER/Nano by design).
+const EXTRA: Case[] = [
+  ['生日：民國七十三年三月十二日', 'DATE_OF_BIRTH', '民國七十三年三月十二日'],
+  ['他是 1984-03-12 出生的', 'DATE_OF_BIRTH', '1984-03-12'],
+  ['出生日期 73年3月12日', 'DATE_OF_BIRTH', '73年3月12日'],
+  ['Patient born March 12, 1984 in Leeds', 'DATE_OF_BIRTH', 'March 12, 1984'],
+  ['DOB: 12/03/1984', 'DATE_OF_BIRTH', '12/03/1984'],
+  ['病人林美玲，民國七十三年三月十二日生，診斷為糖尿病', 'DATE_OF_BIRTH', '民國七十三年三月十二日'],
+  ['2026年11月15日生效', null], // 生效 is not a birth
+  ['會議改到 2026-11-15 下午', null],
+  ['Deadline is March 12, 2027', null],
+  ['請寄到台北市大安區和平東路一段 999 號 8 樓，謝謝', 'ADDRESS', '台北市大安區和平東路一段 999 號 8 樓'],
+  ['地址 106臺北市大安區新生南路三段12巷3弄5號', 'ADDRESS', '106臺北市大安區新生南路三段12巷3弄5號'],
+  ['高雄市苓雅區四維三路2號', 'ADDRESS', '高雄市苓雅區四維三路2號'],
+  ['台北市今天很熱', null],
+  ['住在和平東路 999 號', null], // no city: model layers' job
+];
+
+describe('date of birth and Taiwan address', () => {
+  it.each(EXTRA)('%s -> %s', (input, type, text) => {
+    const spans = detectRegex(input);
+    if (type === null) {
+      expect(spans).toEqual([]);
+    } else {
+      expect(spans).toHaveLength(1);
+      expect(spans[0].type).toBe(type);
+      expect(spans[0].text).toBe(text ?? input);
+    }
+  });
+});
+
 describe('validators', () => {
   it('TW ID checksum', () => {
     expect(isValidTwId('A123456789')).toBe(true);

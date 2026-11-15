@@ -56,6 +56,33 @@ export function isValidIban(raw: string): boolean {
 
 const digitsOf = (s: string) => s.replace(/\D/g, '');
 const ACCOUNT_CONTEXT = /(帳號|帳戶|账号|账户|戶號|account|acct|a\/c)/i;
+const BIRTH_CONTEXT = /(生日|出生|誕生|生於|生年月日|born|birth|dob|d\.o\.b)/i;
+
+// Dates: western numeric, 西元/民國 with 年月日 (Arabic or Chinese numerals), English month names.
+const ZH_NUM = '[〇零一二三四五六七八九十０-９0-9]';
+const MONTHS = 'jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?';
+const DATE = new RegExp(
+  [
+    String.raw`(?<!\d)(?:19|20)\d{2}[-/.](?:0?[1-9]|1[0-2])[-/.](?:0?[1-9]|[12]\d|3[01])(?!\d)`,
+    String.raw`(?<!\d)(?:0?[1-9]|[12]\d|3[01])[-/.](?:0?[1-9]|1[0-2])[-/.](?:19|20)\d{2}(?!\d)`,
+    `(?:西元|民國|民国)?${ZH_NUM}{2,4}年${ZH_NUM}{1,3}月${ZH_NUM}{1,3}[日號号]`,
+    String.raw`(?:民國|民国)\d{2,3}[-/.]\d{1,2}[-/.]\d{1,2}(?!\d)`,
+    String.raw`\b(?:${MONTHS})\.? \d{1,2}(?:st|nd|rd|th)?,? (?:19|20)\d{2}\b`,
+    String.raw`\b\d{1,2}(?:st|nd|rd|th)? (?:${MONTHS})\.?,? (?:19|20)\d{2}\b`,
+  ].join('|'),
+  'gi',
+);
+
+// Taiwan street address. Anchored on the 22 county/city names so the match never starts in the
+// middle of a sentence; must reach a house number (號). Addresses without the city are left to
+// the model layers.
+const TW_CITIES = '(?:[台臺](?:北|中|南|東)|新北|桃園|高雄|基隆|新竹|嘉義|苗栗|彰化|南投|雲林|屏東|宜蘭|花蓮|澎湖|金門|連江)[市縣]';
+const TW_ADDRESS = new RegExp(
+  String.raw`(?:\d{3,6} ?)?${TW_CITIES} ?(?:[一-鿿]{1,3}?[區鄉鎮市])? ?(?:[一-鿿]{1,3}?[里村](?: ?\d+ ?鄰)?)? ?` +
+    String.raw`[一-鿿]{1,5}?(?:路|街|大道)(?: ?[一二三四五六七八九十\d]+ ?段)?(?: ?\d+ ?巷)?(?: ?\d+ ?弄)? ?` +
+    String.raw`\d+(?:[-之]\d+)? ?號(?: ?\d+ ?樓(?:[-之]\d+)?)?(?: ?\d+ ?室)?`,
+  'g',
+);
 
 type Recognizer = {
   name: string;
@@ -76,6 +103,21 @@ export const RECOGNIZERS: Recognizer[] = [
     type: 'ID_NUMBER',
     pattern: /(?<![A-Za-z0-9])[A-Za-z][A-Da-d0-9]\d{8}(?![A-Za-z0-9])/g,
     validate: (m) => isValidTwId(m),
+  },
+  {
+    // A date is only a date of birth when a birth word sits within 15 chars before or 6 after.
+    name: 'date-of-birth',
+    type: 'DATE_OF_BIRTH',
+    pattern: DATE,
+    validate: (m, text, index) =>
+      BIRTH_CONTEXT.test(text.slice(Math.max(0, index - 15), index)) ||
+      BIRTH_CONTEXT.test(text.slice(index + m.length, index + m.length + 6)) ||
+      /^ ?生(?![意活產产氣气效])/.test(text.slice(index + m.length)), // 「…三月十二日生」
+  },
+  {
+    name: 'tw-address',
+    type: 'ADDRESS',
+    pattern: TW_ADDRESS,
   },
   {
     name: 'iban',

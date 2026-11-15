@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test:rules": "firebase emulators:exec --only firestore --project demo-rules-test \"vitest run tests/firestore.rules.test.ts\"",
     "typecheck": "tsc -b --noEmit",
-    "test": "vitest run --dir src"
+    "test": "vitest run --dir src",
+    "test:privacy": "firebase emulators:exec --only auth,firestore --project buildhybridai-2026-fdbba \"node tests/e2e/privacy.mjs\""
   },
   "dependencies": {
     "firebase": "13.1.0",

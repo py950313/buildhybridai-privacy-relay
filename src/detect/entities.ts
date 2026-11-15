@@ -18,7 +18,7 @@ export function entityKey(type: EntityType, text: string): string {
 }
 
 /** True if `part` appears in `whole` and, for ASCII edges, on word boundaries. */
-function containsAsWord(whole: string, part: string): boolean {
+export function containsAsWord(whole: string, part: string): boolean {
   if (part.length < 2 || part.length >= whole.length) return false;
   let i = whole.indexOf(part);
   while (i >= 0) {

@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { connectAuthEmulator, getAuth, signInAnonymously } from 'firebase/auth';
+import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
 import { getRemoteConfig } from 'firebase/remote-config';
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
 import { REMOTE_CONFIG_DEFAULTS } from './remoteConfigDefaults';
@@ -35,6 +35,12 @@ if (siteKey || import.meta.env.VITE_APPCHECK_DEBUG === 'true') {
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// Local emulators for the privacy e2e test (VITE_USE_EMULATORS=true, never set in production).
+if (import.meta.env.VITE_USE_EMULATORS === 'true') {
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+  connectFirestoreEmulator(db, '127.0.0.1', 8080);
+}
 
 export const remoteConfig = getRemoteConfig(app);
 remoteConfig.defaultConfig = REMOTE_CONFIG_DEFAULTS;

@@ -63,7 +63,7 @@ export function Confirm({ draft, setDraft, table, tierNote, online, busy, onSend
       {draft.warnings.map((w) => <p key={w} className="notice">{w}</p>)}
       <div className="highlight" data-testid="highlight">{parts}</div>
 
-      <details className="manual" open={der.mentions.length === 0}>
+      <details className="manual" open={der.mentions.length === 0 || tierNote !== null}>
         <summary>Mark something the detector missed</summary>
         <textarea ref={ta} readOnly rows={5} value={draft.text} data-testid="mark-source" />
         <div className="row">

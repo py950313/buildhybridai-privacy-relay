@@ -35,3 +35,22 @@ evaluation is #8.
 Still open:
 - GLiNER fp16 on iPhone 15 Safari: needs the user's phone.
 - Gemini free-tier quota numbers for the chosen models.
+
+## Detection engine end-to-end (#3, 2026-11-15)
+
+`src/detect` with the real models on the same 20 samples (`prototype/detect-bench.ts`, run by
+`prototype/run-detect-bench.mjs`). Stricter scoring than the tables above: an expected string
+counts only if one mention covers all of it (a partial address is a miss). GLiNER loaded fp16 on
+WebGPU. Nano numbers vary between runs (precision 0.846-0.88 on EN).
+
+| Layers | EN recall / precision | ZH recall / precision | Median per sample |
+|---|---|---|---|
+| regex only | 0.18 / 1.00 | 0.29 / 1.00 | <1 ms |
+| regex + GLiNER | 1.00 / 0.92 | 0.90 / 0.95 | ~0.12 s |
+| regex + GLiNER + Nano | 1.00 / 0.85 | 0.95 / 0.91 | ~1.4 s |
+
+Remaining misses and false positives:
+- ZH date of birth in ROC calendar (「民國七十三年三月十二日」) missed by every layer.
+- ZH full address missed by GLiNER (only part of it covered); Nano recovers it.
+- False positives: "email", "We" (GLiNER), "metformin" as MEDICAL and a meeting name as MEDICAL (Nano).
+- No Nano item ended up unlocated on these samples.

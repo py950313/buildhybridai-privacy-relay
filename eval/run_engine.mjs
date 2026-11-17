@@ -1,6 +1,6 @@
 // Runs our detection engine (real Chrome, real GLiNER + Gemini Nano) over data/<lang>.jsonl.
 // Usage: node eval/run_engine.mjs <config: regex|gliner|full> <lang...>   (starts its own Vite)
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createWriteStream, readFileSync } from 'node:fs';
 import { launchChrome } from '../prototype/chrome.mjs';
 
@@ -35,5 +35,6 @@ for (const lang of langs.length ? langs : ['en', 'zh']) {
   console.log(lang, 'docs', docs.length, 'avg ms', Math.round(totalMs / docs.length), 'warnings', warnings);
 }
 await ctx.close();
-spawn('taskkill', ['/pid', String(vite.pid), '/T', '/F'], { shell: true });
+// Synchronous: an async kill can lose the race with process.exit and leave Vite running.
+spawnSync('taskkill', ['/pid', String(vite.pid), '/T', '/F'], { stdio: 'ignore' });
 process.exit(0);

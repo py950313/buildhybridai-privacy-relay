@@ -12,7 +12,7 @@
 //
 // Run: npm run test:privacy  (wraps this in `firebase emulators:exec --only auth,firestore`)
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { launchChrome } from '../../prototype/chrome.mjs';
 
 const PORT = 5180;
@@ -378,6 +378,7 @@ results.push({ name: 'all cloud request bodies free of marked originals', ok: bo
 
 await ctx.close();
 vite.kill();
-spawn('taskkill', ['/pid', String(vite.pid), '/T', '/F'], { shell: true });
+// Synchronous: an async kill can lose the race with process.exit and leave Vite running.
+spawnSync('taskkill', ['/pid', String(vite.pid), '/T', '/F'], { stdio: 'ignore' });
 console.log(JSON.stringify({ geminiRequests: geminiBodies.length, totalRequests: requests.length, results }, null, 1));
 process.exit(results.every((r) => r.ok) ? 0 : 1);

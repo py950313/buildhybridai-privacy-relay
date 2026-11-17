@@ -10,7 +10,7 @@
 //
 // Run: npm run test:files
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { launchChrome } from '../../prototype/chrome.mjs';
@@ -88,7 +88,8 @@ needles.push({ what: 'PDF header', buf: Buffer.from('%PDF-') }, { what: 'PNG hea
 for (const b of bodies) for (const n of needles) if (b.buf.includes(n.buf)) leaks.push(`${n.what} in request to ${b.url.slice(0, 80)}`);
 
 await ctx.close();
-spawn('taskkill', ['/pid', String(vite.pid), '/T', '/F'], { shell: true });
+// Synchronous: an async kill can lose the race with process.exit and leave Vite running.
+spawnSync('taskkill', ['/pid', String(vite.pid), '/T', '/F'], { stdio: 'ignore' });
 const summary = (mode) => {
   const rs = results.filter((r) => r.mode === mode);
   return { extracted: `${rs.filter((r) => r.ok).length}/${rs.length}`, expectedStrings: `${rs.reduce((a, r) => a + (r.found ?? 0), 0)}/${rs.reduce((a, r) => a + (r.total ?? 0), 0)}` };

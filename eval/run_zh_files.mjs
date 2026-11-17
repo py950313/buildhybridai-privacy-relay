@@ -3,7 +3,7 @@
 // writes data/zhimg.jsonl: the extracted text plus gold spans re-located in it by exact search.
 // Entities that OCR garbled cannot be located; they are listed as `garbled` and reported, not scored.
 // Usage: node eval/run_zh_files.mjs   (then run_engine.mjs / presidio_run.py / score.py with "zhimg")
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { launchChrome } from '../prototype/chrome.mjs';
@@ -86,5 +86,6 @@ for (const f of files) {
 writeFileSync(new URL('data/zhimg.jsonl', here), rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
 console.log('files', rows.length, 'gold spans', rows.reduce((a, r) => a + r.gold.length, 0), 'garbled by OCR', garbledTotal);
 await ctx.close();
-spawn('taskkill', ['/pid', String(vite.pid), '/T', '/F'], { shell: true });
+// Synchronous: an async kill can lose the race with process.exit and leave Vite running.
+spawnSync('taskkill', ['/pid', String(vite.pid), '/T', '/F'], { stdio: 'ignore' });
 process.exit(0);

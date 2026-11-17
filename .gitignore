@@ -30,3 +30,9 @@ dist-ssr
 
 # prototype browser profiles and results with large blobs
 prototype/.profiles/
+
+# eval
+eval/.venv/
+eval/data/nemotron/
+eval/data/*.jsonl
+eval/out/

@@ -1,5 +1,6 @@
 // Dev-only page: exposes the detection engine to the Playwright runner (eval/run_engine.mjs).
 import { detect } from '../../src/detect/engine';
+import { extractFile } from '../../src/extract';
 import { GlinerLayer } from '../../src/detect/gliner';
 import { NanoLayer, nanoAvailable } from '../../src/detect/nano';
 import type { DetectionLayer, EntityType } from '../../src/detect/types';
@@ -16,6 +17,13 @@ const api = {
     const nanoOk = await nanoAvailable();
     if (nanoOk) nano = new NanoLayer({ zhEnabled: true });
     return { gliner: gliner.variantName, nano: nanoOk };
+  },
+  /** Reads an image or PDF (base64) with the app's extractor; Nano is used only as the fallback reader. */
+  async extract(b64: string, name: string) {
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const type = name.endsWith('.pdf') ? 'application/pdf' : 'image/png';
+    const r = await extractFile(new File([bytes], name, { type }), { useNano: await nanoAvailable() });
+    return { text: r.text, engine: r.engine, ocrPages: r.ocrPages };
   },
   async run(text: string, config: 'regex' | 'gliner' | 'full') {
     const layers: DetectionLayer[] = config === 'regex' ? [] : config === 'gliner' || !nano ? [gliner] : [gliner, nano];

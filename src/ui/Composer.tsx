@@ -1,4 +1,5 @@
 import type { ScenarioConfig, ScenarioId } from '../config/scenarios';
+import { ACCEPT, type Extracted } from '../extract';
 import type { OutLang, Route, RouteDecision, Task } from '../relay/router';
 import { useT, type UiLang } from './i18n';
 
@@ -24,6 +25,10 @@ type Props = {
   busy: boolean;
   onSubmit: () => void;
   uiLang: UiLang;
+  onFile: (f: File) => void;
+  fileBusy: string | null; // progress text while a file is being read
+  fileInfo: Extracted | null;
+  fileError: string;
 };
 
 const TASKS: [Task, string][] = [
@@ -80,6 +85,25 @@ export function Composer(p: Props) {
         placeholder={t('Paste the email, document or report here.')}
         onChange={(e) => p.setContent(e.target.value)}
       />
+      <div className="row">
+        <label className="filepick">
+          <input
+            type="file" accept={ACCEPT} data-testid="file-input" disabled={p.fileBusy !== null || p.busy}
+            onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) p.onFile(f); }}
+          />
+          <span>{t('Add an image or PDF (read on this device)')}</span>
+        </label>
+        {p.fileBusy !== null && <span className="muted" data-testid="file-busy">{p.fileBusy}</span>}
+      </div>
+      {p.fileError && <p className="error" data-testid="file-error">{t(p.fileError)}</p>}
+      {p.fileInfo && (
+        <p className="notice" data-testid="file-note" data-pages={p.fileInfo.pages} data-ocr={p.fileInfo.ocrPages} data-engine={p.fileInfo.engine ?? ''} data-confidence={p.fileInfo.confidence ?? ''}>
+          {t('Text read from {name} on this device ({pages} page(s), {ocr} by OCR). The file itself is never uploaded.',
+            { name: p.fileInfo.name, pages: p.fileInfo.pages, ocr: p.fileInfo.ocrPages })}
+          {p.fileInfo.ocrPages > 0 && <> {t('Check the text above: misread characters can hide private details from detection.')}</>}
+          {p.fileInfo.truncated && <> {t('Only the first 30 pages were read.')}</>}
+        </p>
+      )}
       <div className="row route">
         <span className={`badge route-${effective}`} data-testid="route" data-route={effective}>
           {t(effective === 'local' ? 'On this device' : 'Masked, then cloud')}

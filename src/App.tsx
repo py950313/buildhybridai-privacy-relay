@@ -6,6 +6,7 @@ import type { ScenarioId } from './config/scenarios';
 import { estimateTokens } from './detect/chunk';
 import { detect } from './detect/engine';
 import { guessLang } from './detect/nano';
+import { ExtractError, extractFile, type Extracted } from './extract';
 import type { Entity } from './detect/types';
 import { placeholdersIn, restore } from './relay/placeholders';
 import { buildPrompt, joinCustom } from './relay/prompts';
@@ -72,6 +73,9 @@ export default function App() {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [followup, setFollowup] = useState('');
   const [error, setError] = useState('');
+  const [fileBusy, setFileBusy] = useState<string | null>(null);
+  const [fileInfo, setFileInfo] = useState<Extracted | null>(null);
+  const [fileError, setFileError] = useState('');
   const chat = useRef<ChatSession | null>(null);
   const turnId = useRef(0);
 
@@ -131,6 +135,24 @@ export default function App() {
       () => setTurns((ts) => ts.map((t) => (t.id === id ? { ...t, receiptNote: 'Statistics were not saved.' } : t))),
     );
   };
+
+  // The file stays in memory: only the text read from it goes into the box (and on to detection).
+  async function handleFile(file: File) {
+    setFileError('');
+    setFileInfo(null);
+    setFileBusy(t('Reading file on this device…'));
+    try {
+      const r = await extractFile(file, {
+        useNano: nanoReady,
+        onProgress: (n, total) => setFileBusy(t('Reading page {n} of {total}…', { n, total })),
+      });
+      setContent((prev) => (prev.trim() ? `${prev.trimEnd()}\n\n${r.text}` : r.text));
+      setFileInfo(r);
+    } catch (e) {
+      setFileError(e instanceof ExtractError ? e.message : 'The file could not be read.');
+    }
+    setFileBusy(null);
+  }
 
   async function runLocalTurn() {
     setPhase('running');
@@ -223,6 +245,8 @@ export default function App() {
     setInstruction('');
     setFollowup('');
     setError('');
+    setFileInfo(null);
+    setFileError('');
     setPhase('idle');
   }
 
@@ -254,7 +278,8 @@ export default function App() {
             task={task} setTask={setTask} target={target} setTarget={setTarget}
             instruction={instruction} setInstruction={setInstruction} content={content} setContent={setContent}
             scenario={scenario} setScenario={setScenario} scenarios={config.scenarios} uiLang={uiLang} decision={decision} choice={choice} setChoice={setChoice}
-            localAllowed={nanoReady} online={online} busy={phase !== 'idle'} onSubmit={submit}
+            localAllowed={nanoReady} online={online} busy={phase !== 'idle' || fileBusy !== null} onSubmit={submit}
+            onFile={handleFile} fileBusy={fileBusy} fileInfo={fileInfo} fileError={fileError}
           />
         )}
 

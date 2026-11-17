@@ -116,10 +116,17 @@ lines += [
 ]
 summary = {}
 for lang, title in [("en", "English: NVIDIA Nemotron-PII test split, 300 documents (seeded sample)"),
-                    ("zh", "Traditional Chinese: 30 synthetic samples written for this project")]:
+                    ("zh", "Traditional Chinese: 30 synthetic samples written for this project"),
+                    ("zhimg", "Traditional Chinese from files: samples zh01-zh10 as 5 images and 5 PDFs, read on the device first")]:
+    if not (HERE / f"data/{lang}.jsonl").exists():
+        continue
     gold = load(HERE / f"data/{lang}.jsonl")
     n_gold = sum(len(d["gold"]) for d in gold.values())
     lines += [f"## {title}", "", f"{len(gold)} documents, {n_gold} in-scope gold spans.", ""]
+    garbled = [g for d in gold.values() for g in d.get("garbled", [])]
+    if lang == "zhimg":
+        lines += [f"Gold spans are located in the text the extractor produced. {len(garbled)} entities were garbled by "
+                  f"OCR and could not be located, so they are not scored: {', '.join(garbled) or 'none'}.", ""]
     lines += ["| System | Overlap P | Overlap R | Overlap F1 | Fully covered R | Exact P | Exact R | Exact F1 | Structured R (overlap / full) |",
               "|---|---|---|---|---|---|---|---|---|"]
     fams = {}

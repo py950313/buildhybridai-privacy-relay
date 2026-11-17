@@ -11,11 +11,15 @@
     "test:rules": "firebase emulators:exec --only firestore --project demo-rules-test \"vitest run tests/firestore.rules.test.ts\"",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run --dir src",
-    "test:privacy": "firebase emulators:exec --only auth,firestore --project buildhybridai-2026-fdbba \"node tests/e2e/privacy.mjs\""
+    "test:privacy": "firebase emulators:exec --only auth,firestore --project buildhybridai-2026-fdbba \"node tests/e2e/privacy.mjs\"",
+    "predev": "node scripts/copy-pdfjs.mjs",
+    "prebuild": "node scripts/copy-pdfjs.mjs",
+    "test:files": "node tests/e2e/files.mjs"
   },
   "dependencies": {
     "firebase": "13.1.0",
     "gliner": "0.0.19",
+    "pdfjs-dist": "6.5.438",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tesseract.js": "7.0.0"

@@ -48,7 +48,7 @@ for lang in sys.argv[1:] or LANGS:
             open(HERE / f"out/presidio_{lang}.jsonl", "w", encoding="utf-8") as out:
         for line in f:
             d = json.loads(line)
-            res = analyzer.analyze(text=d["text"], language=lang)
+            res = analyzer.analyze(text=d["text"], language="zh" if lang.startswith("zh") else lang)
             preds = [{"start": r.start, "end": r.end, "family": FAMILY.get(r.entity_type, "OTHER"),
                       "type": r.entity_type, "score": round(r.score, 2)} for r in res]
             out.write(json.dumps({"id": d["id"], "preds": preds}, ensure_ascii=False) + "\n")

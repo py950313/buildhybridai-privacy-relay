@@ -6,6 +6,9 @@
 import { describe, expect, it } from 'vitest';
 import { filterItems, passesScore, splitForModel } from './gliner';
 import { declaredLang, guessLang, parseItems, postFilter } from './nano';
+import { fileKind } from '../extract';
+import { tidyOcr } from '../extract/ocr';
+import { foldRadicals } from '../extract/pdf';
 
 describe('gliner helpers', () => {
   it('drops pronouns and punctuation-only items', () => {
@@ -36,6 +39,21 @@ describe('gliner helpers', () => {
     const parts = splitForModel(text, 300);
     expect(parts.length).toBeGreaterThan(1);
     expect(parts.join('')).toBe(text);
+  });
+});
+
+describe('extract helpers', () => {
+  it('folds Kangxi radicals from PDF text layers back to ordinary characters', () => {
+    expect(foldRadicals('和平東路\u2f00段 \u2f24安區')).toBe('和平東路一段 大安區');
+    expect(foldRadicals('ＡＢＣ①')).toBe('ＡＢＣ①'); // other compatibility characters untouched
+  });
+  it('removes OCR spaces between CJK characters only', () => {
+    expect(tidyOcr('王 小 明 的 電 話  \nSarah Lin called')).toBe('王小明的電話\nSarah Lin called');
+  });
+  it('recognizes supported files by type or extension', () => {
+    expect(fileKind({ name: 'a.PDF', type: '' })).toBe('pdf');
+    expect(fileKind({ name: 'x', type: 'image/jpeg' })).toBe('image');
+    expect(fileKind({ name: 'a.docx', type: 'application/vnd.openxmlformats' })).toBeNull();
   });
 });
 

@@ -36,3 +36,7 @@ eval/.venv/
 eval/data/nemotron/
 eval/data/*.jsonl
 eval/out/
+
+# pdf.js runtime assets copied from node_modules
+public/pdfjs/
+eval/data/zhimg/

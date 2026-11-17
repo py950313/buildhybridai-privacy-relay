@@ -50,3 +50,9 @@ mark.invalid { background: rgba(197, 34, 31, .2); color: var(--err); font-weight
 @media (max-width: 600px) {
   .entities th:nth-child(4), .entities td:nth-child(4) { display: none; }
 }
+
+.filepick input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.filepick span { display: inline-block; border: 1px dashed var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer; background: var(--panel); }
+.filepick input:focus-visible + span { outline: 2px solid var(--accent); }
+.filepick input:disabled + span { opacity: .5; cursor: not-allowed; }
+.status .lang { padding: 2px 6px; }

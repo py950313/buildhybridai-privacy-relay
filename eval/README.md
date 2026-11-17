@@ -23,7 +23,13 @@ Our engine runs in real Chrome through the dev-only page `eval/web/` driven by P
   under non-commercial licences, and states no licence for the merged corpus.
 - **Traditional Chinese**: 30 synthetic samples written for this project (`zh_samples.json`), covering
   work mail, HR, contracts, finance, health and customer service. All names and numbers are made up.
-  The planned 10 image/PDF samples are not included yet (image and PDF input is not built).
+- **Traditional Chinese from files**: samples zh01-zh10 rendered as 3 screenshots, 2 simulated phone
+  photos, 3 text-layer PDFs and 2 scanned PDFs (`run_zh_files.mjs`), read back with the app's own
+  extractor (`src/extract`), then scored on the extracted text. Gold spans are re-located in that
+  text by exact search. Entities OCR garbled cannot be located and are reported, not scored: 6 of
+  35 here, all in photos and scans (mostly names). A garbled name the engine still masks is counted
+  as a false positive, which is why precision on this set is lower. Presidio gets the same
+  extracted text.
 
 ## Scoring
 
@@ -110,6 +116,15 @@ EMAIL, PHONE, ID_NUMBER, CARD, ACCOUNT, DOB; MEDICAL and FINANCIAL on the Chines
 | 財務情況 | FINANCIAL, ACCOUNT, CARD | Rules (card, account); GLiNER (money) |
 | 社會活動 | - | **Not covered** |
 
+## Reading images and PDFs
+
+Measured on `tests/e2e/files` (10 files, `npm run test:files`): Tesseract.js is exact on clean
+screenshots and scans; Gemini Nano dropped characters and lines on dense pages (4 of 6 expected
+strings on a scanned report where Tesseract got 6 of 6) but read a noisy phone photo Tesseract
+could not. The extractor therefore uses Tesseract first, retries on a cleaned-up image when
+confidence is below 70, and only then falls back to Nano. With the Nano fallback 52 of 53 expected
+strings were read; with Tesseract alone 51 of 53. The UI always asks the user to check OCR text.
+
 ## Reproduce
 
 ```
@@ -120,5 +135,7 @@ uv run python prepare.py 300 --dev    # data/dev.jsonl (tuning only)
 uv run python presidio_run.py en zh
 cd .. && node eval/run_engine.mjs regex en zh && node eval/run_engine.mjs gliner en zh
 LIMIT=100 node eval/run_engine.mjs full en zh    # needs Chrome with Gemini Nano downloaded
-cd eval && uv run python score.py     # writes report.md
+node eval/run_zh_files.mjs                       # data/zhimg.jsonl from rendered images and PDFs
+node eval/run_engine.mjs regex zhimg && node eval/run_engine.mjs gliner zhimg && node eval/run_engine.mjs full zhimg
+cd eval && uv run python presidio_run.py zhimg && uv run python score.py     # writes report.md
 ```

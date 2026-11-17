@@ -1,4 +1,3 @@
-import type { ChatSession } from 'firebase/ai';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import './App.css';
 import { PRODUCT_NAME } from './config/product';
@@ -12,7 +11,9 @@ import { placeholdersIn, restore } from './relay/placeholders';
 import { buildPrompt, joinCustom } from './relay/prompts';
 import { decideRoute, outputLang, type OutLang, type Route, type Task } from './relay/router';
 import { countByType, draftFrom, prepareOutgoing, type Draft } from './relay/session';
-import { classifyTask, prepareDeviceModel, runLocal, sendCloud, startCloudChat } from './services/ai';
+import { classifyTask, prepareDeviceModel, runLocal } from './services/ai';
+import { loadModels, vault, vaultState, type VaultState } from './services/keys';
+import { anthropicChat, geminiChat, ProviderError, xaiChat, type CloudChat, type ProviderId } from './services/providers';
 import {
   detectionLayers, GLINER_SIZE_MB, glinerDisabled, glinerLayer, hasGlinerConsent, pickVariant, probeNano,
   setGlinerConsent, tierOf, type NanoState,
@@ -21,6 +22,7 @@ import { DEFAULT_CONFIG, loadConfig, type AppConfig } from './services/config';
 import { saveReceipt, type ReceiptStats } from './services/receipts';
 import { Composer, type RouteChoice } from './ui/Composer';
 import { Confirm } from './ui/Confirm';
+import { KeysPanel } from './ui/KeysPanel';
 import { LangContext, translate, type UiLang } from './ui/i18n';
 import { StatusBar, type GlinerState } from './ui/StatusBar';
 import { TurnView, type Turn } from './ui/TurnView';
@@ -29,6 +31,7 @@ type Pending = { kind: 'first' | 'followup'; task: Task; target: OutLang; body: 
 type Phase = 'idle' | 'running' | 'detecting' | 'confirm' | 'sending';
 
 function describeError(e: unknown): string {
+  if (e instanceof ProviderError) return e.message;
   if (!navigator.onLine) return 'You are offline. Nothing was sent.';
   const msg = e instanceof Error ? e.message : String(e);
   if (/timeout|timed out|abort/i.test(msg)) return 'The cloud model did not answer within 60 seconds. Try again.';
@@ -76,7 +79,10 @@ export default function App() {
   const [fileBusy, setFileBusy] = useState<string | null>(null);
   const [fileInfo, setFileInfo] = useState<Extracted | null>(null);
   const [fileError, setFileError] = useState('');
-  const chat = useRef<ChatSession | null>(null);
+  const chat = useRef<CloudChat | null>(null);
+  const [provider, setProvider] = useState<ProviderId>('gemini');
+  const [keys, setKeys] = useState<VaultState>({ exists: false, unlocked: false, anthropic: false, xai: false });
+  const refreshKeys = () => { vaultState().then(setKeys); };
   const turnId = useRef(0);
 
   const cfg = config.scenarios[scenario];
@@ -102,6 +108,8 @@ export default function App() {
   useEffect(() => {
     loadConfig().then(setConfig);
     probeNano().then(setNano);
+    refreshKeys();
+    vault.onLock = refreshKeys;
     if (!glinerDisabled()) {
       pickVariant().then((v) => setGlinerSize(GLINER_SIZE_MB[v.name]));
       if (hasGlinerConsent()) startGliner();
@@ -112,6 +120,25 @@ export default function App() {
     addEventListener('offline', off);
     return () => { removeEventListener('online', on); removeEventListener('offline', off); };
   }, []);
+
+  // A provider whose key is no longer available (vault locked) falls back to Gemini.
+  const providerReady: Record<ProviderId, boolean> = { gemini: true, copy: true, anthropic: keys.anthropic, xai: keys.xai };
+  const activeProvider: ProviderId = providerReady[provider] ? provider : 'gemini';
+
+  function openChat(): CloudChat {
+    const models = loadModels();
+    if (activeProvider === 'anthropic') {
+      const key = vault.get('anthropic');
+      if (!key) throw new ProviderError('Your keys are locked. Unlock them and try again.');
+      return anthropicChat(key, models.anthropic);
+    }
+    if (activeProvider === 'xai') {
+      const key = vault.get('xai');
+      if (!key) throw new ProviderError('Your keys are locked. Unlock them and try again.');
+      return xaiChat(key, models.xai);
+    }
+    return geminiChat(cfg.model === 'complex' ? config.cloudModelComplex : config.cloudModelDefault);
+  }
 
   const body = task === 'custom' ? joinCustom(instruction, content) : content;
   const lang = guessLang(body);
@@ -191,7 +218,7 @@ export default function App() {
       route = decideRoute({ ...routeInput, task: await classifyTask(instruction) }).route;
     }
     if (route === 'local') return runLocalTurn();
-    if (!online) {
+    if (!online && activeProvider !== 'copy') {
       setPhase('idle');
       setError('You are offline. Cloud tasks need a connection.');
       return;
@@ -201,7 +228,8 @@ export default function App() {
 
   async function send() {
     if (!draft || !pending) return;
-    if (!navigator.onLine) {
+    const copyMode = (chat.current?.provider ?? activeProvider) === 'copy' || (turns.length > 0 && turns[turns.length - 1].provider === 'copy');
+    if (!copyMode && !navigator.onLine) {
       setError('You are offline. Nothing was sent.');
       return;
     }
@@ -215,24 +243,38 @@ export default function App() {
     setPhase('sending');
     const sentPlaceholders = placeholdersIn(out.masked, out.table);
     const kept = out.table.filter((e) => sentPlaceholders.includes(e.placeholder));
-    const model = cfg.model === 'complex' ? config.cloudModelComplex : config.cloudModelDefault;
     const disclaimer = cfg.disclaimer?.[uiLang];
     const t0 = performance.now();
     setTable(out.table);
-    try {
-      chat.current ??= startCloudChat(model);
-      const resp = await sendCloud(chat.current, out.masked);
-      const latencyMs = performance.now() - t0;
-      const id = addTurn({ route: 'cloud', provider: model, input: pending.body, sent: out.masked, kept, latencyMs, disclaimer,
-        output: restore(resp, out.table, sentPlaceholders) });
-      record(id, { scenario, route: 'cloud', provider: 'gemini', maskedCounts: countByType(out.mentions), inputChars: pending.body.length, latencyMs });
-    } catch (e) {
-      addTurn({ route: 'cloud', provider: model, input: pending.body, sent: out.masked, kept, error: describeError(e) });
+    if (copyMode) {
+      // Nothing is sent: the user carries the masked text to another AI and pastes the reply back.
+      const id = addTurn({ route: 'cloud', provider: 'copy', input: pending.body, sent: out.masked, kept, disclaimer,
+        awaitingPaste: { table: out.table, placeholders: sentPlaceholders } });
+      record(id, { scenario, route: 'cloud', provider: 'copy', maskedCounts: countByType(out.mentions), inputChars: pending.body.length, latencyMs: 0 });
+    } else {
+      let label = activeProvider as string;
+      try {
+        chat.current ??= openChat();
+        label = chat.current.model;
+        const resp = await chat.current.send(out.masked);
+        const latencyMs = performance.now() - t0;
+        const id = addTurn({ route: 'cloud', provider: label, input: pending.body, sent: out.masked, kept, latencyMs, disclaimer,
+          output: restore(resp, out.table, sentPlaceholders) });
+        record(id, { scenario, route: 'cloud', provider: chat.current.provider, maskedCounts: countByType(out.mentions), inputChars: pending.body.length, latencyMs });
+      } catch (e) {
+        addTurn({ route: 'cloud', provider: label, input: pending.body, sent: out.masked, kept, error: describeError(e) });
+      }
     }
     setDraft(null);
     setPending(null);
     setFollowup('');
     setPhase('idle');
+  }
+
+  function handlePaste(id: number, reply: string) {
+    setTurns((ts) => ts.map((x) => (x.id === id && x.awaitingPaste
+      ? { ...x, awaitingPaste: undefined, output: restore(reply, x.awaitingPaste.table, x.awaitingPaste.placeholders) }
+      : x)));
   }
 
   function clearAll() {
@@ -251,7 +293,8 @@ export default function App() {
   }
 
   const last = turns.length > 0 ? turns[turns.length - 1] : null;
-  const lastCloud = last?.route === 'cloud' && !last.error;
+  const lastCloud = last?.route === 'cloud' && !last.error && !last.awaitingPaste;
+  const copySession = last?.provider === 'copy';
 
   return (
     <LangContext.Provider value={uiLang}>
@@ -279,12 +322,15 @@ export default function App() {
             instruction={instruction} setInstruction={setInstruction} content={content} setContent={setContent}
             scenario={scenario} setScenario={setScenario} scenarios={config.scenarios} uiLang={uiLang} decision={decision} choice={choice} setChoice={setChoice}
             localAllowed={nanoReady} online={online} busy={phase !== 'idle' || fileBusy !== null} onSubmit={submit}
+            provider={activeProvider} setProvider={setProvider} providerReady={providerReady}
             onFile={handleFile} fileBusy={fileBusy} fileInfo={fileInfo} fileError={fileError}
           />
         )}
 
+        {turns.length === 0 && phase !== 'confirm' && <KeysPanel state={keys} onChange={refreshKeys} />}
+
         {turns.map((t) => (
-          <TurnView key={t.id} turn={t}
+          <TurnView key={t.id} turn={t} onPaste={(reply) => handlePaste(t.id, reply)}
             onUseCloud={t.route === 'local' && t === last && phase === 'idle'
               ? () => startDetection({ kind: 'first', task, target, body: t.input }) : undefined} />
         ))}
@@ -296,7 +342,7 @@ export default function App() {
         {phase === 'confirm' && draft && (
           <Confirm
             draft={draft} setDraft={setDraft} table={pending?.kind === 'followup' ? table : []}
-            manualMode={tier === 'manual'}
+            manualMode={tier === 'manual'} copyMode={pending?.kind === 'followup' ? copySession : activeProvider === 'copy'}
             online={online} busy={false} onSend={send}
             onCancel={() => { setDraft(null); setPhase('idle'); }}
           />
@@ -307,7 +353,7 @@ export default function App() {
             <textarea rows={3} value={followup} onChange={(e) => setFollowup(e.target.value)} data-testid="followup"
               placeholder={t('Ask a follow-up (checked and masked the same way)')} />
             <div className="row">
-              <button className="primary" disabled={!followup.trim() || !online} data-testid="followup-submit"
+              <button className="primary" disabled={!followup.trim() || (!online && !copySession)} data-testid="followup-submit"
                 onClick={() => startDetection({ kind: 'followup', task: 'custom', target, body: followup })}>
                 {t('Find private details')}
               </button>

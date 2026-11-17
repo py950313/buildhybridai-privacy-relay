@@ -17,6 +17,7 @@
     "test:files": "node tests/e2e/files.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "1.9.0",
     "firebase": "13.1.0",
     "gliner": "0.0.19",
     "pdfjs-dist": "6.5.438",

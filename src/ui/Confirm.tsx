@@ -10,13 +10,14 @@ type Props = {
   setDraft: (d: Draft) => void;
   table: Entity[];
   manualMode: boolean;
+  copyMode: boolean;
   online: boolean;
   busy: boolean;
   onSend: () => void;
   onCancel: () => void;
 };
 
-export function Confirm({ draft, setDraft, table, manualMode, online, busy, onSend, onCancel }: Props) {
+export function Confirm({ draft, setDraft, table, manualMode, copyMode, online, busy, onSend, onCancel }: Props) {
   const t = useT();
   const der = useMemo(() => derive(draft, table), [draft, table]);
   const excluded = useMemo(() => new Set(draft.excluded), [draft.excluded]);
@@ -124,10 +125,10 @@ export function Confirm({ draft, setDraft, table, manualMode, online, busy, onSe
 
       <div className="row">
         <button onClick={onCancel}>{t('Back')}</button>
-        <button className="primary" disabled={busy || !online} onClick={onSend} data-testid="send">
-          {t('Send masked text ({n} hidden)', { n: maskedCount })}
+        <button className="primary" disabled={busy || (!online && !copyMode)} onClick={onSend} data-testid="send">
+          {t(copyMode ? 'Show masked text to copy ({n} hidden)' : 'Send masked text ({n} hidden)', { n: maskedCount })}
         </button>
-        {!online && <span className="notice" data-testid="offline-msg">{t('Offline: connect to send to the cloud.')}</span>}
+        {!online && !copyMode && <span className="notice" data-testid="offline-msg">{t('Offline: connect to send to the cloud.')}</span>}
       </div>
     </section>
   );

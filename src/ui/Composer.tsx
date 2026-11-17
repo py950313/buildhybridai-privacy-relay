@@ -1,6 +1,7 @@
 import type { ScenarioConfig, ScenarioId } from '../config/scenarios';
 import { ACCEPT, type Extracted } from '../extract';
 import type { OutLang, Route, RouteDecision, Task } from '../relay/router';
+import type { ProviderId } from '../services/providers';
 import { useT, type UiLang } from './i18n';
 
 export type RouteChoice = 'auto' | Route;
@@ -25,6 +26,9 @@ type Props = {
   busy: boolean;
   onSubmit: () => void;
   uiLang: UiLang;
+  provider: ProviderId;
+  setProvider: (p: ProviderId) => void;
+  providerReady: Record<ProviderId, boolean>;
   onFile: (f: File) => void;
   fileBusy: string | null; // progress text while a file is being read
   fileInfo: Extracted | null;
@@ -43,7 +47,7 @@ export function Composer(p: Props) {
   const t = useT();
   const cfg = p.scenarios[p.scenario];
   const effective = cfg.forceCloud ? 'cloud' : p.choice === 'auto' ? p.decision.route : p.choice;
-  const blocked = effective === 'cloud' && !p.online;
+  const blocked = effective === 'cloud' && !p.online && p.provider !== 'copy';
   const empty = !p.content.trim() && !(p.task === 'custom' && p.instruction.trim());
   return (
     <section className="composer">
@@ -117,6 +121,14 @@ export function Composer(p: Props) {
             <option value="auto">{t('Auto')}</option>
             <option value="local" disabled={!p.localAllowed}>{t('On this device')}</option>
             <option value="cloud">{t('Cloud (masked)')}</option>
+          </select>
+        )}
+        {effective === 'cloud' && (
+          <select value={p.provider} onChange={(e) => p.setProvider(e.target.value as ProviderId)} data-testid="provider" aria-label={t('Cloud AI')}>
+            <option value="gemini">Gemini</option>
+            <option value="anthropic" disabled={!p.providerReady.anthropic}>Claude ({t('your key')})</option>
+            <option value="xai" disabled={!p.providerReady.xai}>Grok ({t('your key')})</option>
+            <option value="copy">{t('Copy and paste to any AI')}</option>
           </select>
         )}
         <button className="primary" disabled={p.busy || empty || blocked} onClick={p.onSubmit} data-testid="submit">

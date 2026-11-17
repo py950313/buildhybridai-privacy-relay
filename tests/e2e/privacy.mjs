@@ -32,7 +32,37 @@ let mockMode = 'echo';
 const geminiBodies = [];
 
 const ctx = await launchChrome();
-ctx.on('request', (r) => requests.push({ url: r.url(), body: r.postData() ?? '' }));
+ctx.on('request', (r) => requests.push({ url: r.url(), body: r.postData() ?? '', headers: JSON.stringify(r.headers()) }));
+
+// Bring-your-own-key providers: fake keys, mocked endpoints (no real account is used).
+const FAKE_KEYS = { anthropic: 'sk-ant-e2e-FAKE-000111222333', xai: 'xai-e2e-FAKE-444555666777' };
+const VAULT_PASSWORD = 'e2e vault password';
+const byokBodies = { anthropic: [], xai: [] };
+const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
+const placeholdersOf = (text) => [...new Set(text.match(/\[[A-Z_]+_\d+\]/g) ?? [])];
+await ctx.route(/api\.anthropic\.com/, async (route) => {
+  if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+  const body = route.request().postData() ?? '';
+  byokBodies.anthropic.push(body);
+  const last = JSON.parse(body).messages.at(-1).content;
+  const text = `Claude draft mentioning ${placeholdersOf(typeof last === 'string' ? last : JSON.stringify(last)).join(' and ') || 'nobody'}.`;
+  const ev = (type, data) => `event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`;
+  const sse = ev('message_start', { message: { id: 'msg_e2e', type: 'message', role: 'assistant', model: 'claude-opus-5-5', content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 10, output_tokens: 1 } } })
+    + ev('content_block_start', { index: 0, content_block: { type: 'text', text: '' } })
+    + ev('content_block_delta', { index: 0, delta: { type: 'text_delta', text } })
+    + ev('content_block_stop', { index: 0 })
+    + ev('message_delta', { delta: { stop_reason: 'end_turn', stop_sequence: null }, usage: { output_tokens: 12 } })
+    + ev('message_stop', {});
+  await route.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'text/event-stream' }, body: sse });
+});
+await ctx.route(/api\.x\.ai/, async (route) => {
+  if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+  const body = route.request().postData() ?? '';
+  byokBodies.xai.push(body);
+  const text = `Grok draft mentioning ${placeholdersOf(JSON.parse(body).messages.at(-1).content).join(' and ') || 'nobody'}.`;
+  await route.fulfill({ status: 200, headers: { ...CORS, 'content-type': 'application/json' },
+    body: JSON.stringify({ choices: [{ index: 0, message: { role: 'assistant', content: text }, finish_reason: 'stop' }] }) });
+});
 await ctx.route(/firebasevertexai\.googleapis\.com/, async (route) => {
   const body = route.request().postData() ?? '';
   geminiBodies.push(body);
@@ -56,6 +86,10 @@ await ctx.route(/firebasevertexai\.googleapis\.com/, async (route) => {
   // anonymous session so every run starts signed out.
   await warm.evaluate(() => new Promise((resolve) => {
     const req = indexedDB.deleteDatabase('firebaseLocalStorageDb');
+    req.onsuccess = req.onerror = req.onblocked = () => resolve();
+  }));
+  await warm.evaluate(() => new Promise((resolve) => {
+    const req = indexedDB.deleteDatabase('byok-vault');
     req.onsuccess = req.onerror = req.onblocked = () => resolve();
   }));
   await warm.waitForTimeout(5000);
@@ -92,10 +126,11 @@ async function ensureGliner(page) {
   await page.waitForFunction(() => /ready \((fp16|int8)\)/.test(document.querySelector('[data-testid=status]')?.textContent ?? ''), null, { timeout: 300_000 });
 }
 
-async function cloudRun(page, text, { task = 'analyze', expect = [] } = {}) {
+async function cloudRun(page, text, { task = 'analyze', expect = [], provider = null } = {}) {
   await page.selectOption('[data-testid=task]', task);
   await page.fill('[data-testid=content]', text);
   await page.selectOption('[data-testid=route-choice]', 'cloud');
+  if (provider) await page.selectOption('[data-testid=provider]', provider);
   await page.click('[data-testid=submit]');
   await page.waitForSelector('[data-testid=confirm]', { timeout: 120_000 });
   const marked = await markedTexts(page);
@@ -227,8 +262,98 @@ await scenario('no Prompt API: page works, no errors', async (page, errors) => {
   return [];
 });
 
+// --- Bring your own key (#6) ---
+const keysPanel = (page, state) => page.waitForSelector(`[data-testid=keys-panel][data-state=${state}]`, { timeout: 30_000 });
+
+await scenario('key vault: ciphertext only in IndexedDB, wrong password refused', async (page) => {
+  await page.goto(`${BASE}/?nano=off&gliner=off`);
+  await keysPanel(page, 'none');
+  await page.click('[data-testid=keys-panel] summary');
+  await page.fill('[data-testid=key-anthropic]', FAKE_KEYS.anthropic);
+  await page.fill('[data-testid=key-xai]', FAKE_KEYS.xai);
+  await page.fill('[data-testid=vault-password]', VAULT_PASSWORD);
+  await page.click('[data-testid=vault-create]');
+  await keysPanel(page, 'unlocked');
+  // #6 acceptance 1: the stored record holds no key in clear.
+  const dump = await page.evaluate(() => new Promise((resolve, reject) => {
+    const open = indexedDB.open('byok-vault');
+    open.onerror = () => reject(open.error);
+    open.onsuccess = () => {
+      const get = open.result.transaction('vault').objectStore('vault').get('keys');
+      get.onsuccess = () => {
+        const r = get.result;
+        const latin1 = (u) => Array.from(u, (b) => String.fromCharCode(b)).join('');
+        resolve({ fields: Object.keys(r).sort(), iterations: r.iterations, raw: latin1(r.ct) + latin1(r.salt) + latin1(r.iv) + JSON.stringify(r) });
+      };
+    };
+  }));
+  assert.deepEqual(dump.fields, ['ct', 'iterations', 'iv', 'salt', 'v']);
+  assert.equal(dump.iterations, 600000);
+  for (const k of Object.values(FAKE_KEYS)) assert.ok(!dump.raw.includes(k), 'API key stored in clear');
+  // #6 acceptance 2: a wrong password does not unlock.
+  await page.click('[data-testid=vault-lock]');
+  await keysPanel(page, 'locked');
+  await page.fill('[data-testid=vault-password]', VAULT_PASSWORD + 'x');
+  await page.click('[data-testid=vault-unlock]');
+  await page.waitForSelector('[data-testid=vault-error]');
+  assert.match(await page.locator('[data-testid=vault-error]').textContent(), /Wrong password/);
+  await keysPanel(page, 'locked');
+  assert.ok(await page.locator('[data-testid=provider]').count() === 0 || await page.locator('[data-testid=provider] option[value=anthropic]').isDisabled());
+  return [];
+});
+
+async function unlockVault(page) {
+  await keysPanel(page, 'locked');
+  await page.click('[data-testid=keys-panel] summary');
+  await page.fill('[data-testid=vault-password]', VAULT_PASSWORD);
+  await page.click('[data-testid=vault-unlock]');
+  await keysPanel(page, 'unlocked');
+}
+
+for (const [provider, label] of [['anthropic', 'Claude'], ['xai', 'Grok']]) {
+  await scenario(`own key: ${provider} direct call (mocked endpoint)`, async (page) => {
+    await page.goto(`${BASE}/?nano=off&gliner=off`);
+    await unlockVault(page);
+    const m = await cloudRun(page, 'Ask Olivia Marsh (olivia.marsh@demo-mail.com, 0933-222-111) to confirm the delivery.',
+      { provider, expect: ['olivia.marsh@demo-mail.com', '0933-222-111'] });
+    await send(page);
+    const answer = await page.locator('[data-testid=answer]').last().textContent();
+    assert.ok(answer.includes(`${label} draft`) && answer.includes('olivia.marsh@demo-mail.com'), `not restored: ${answer}`);
+    assert.equal(byokBodies[provider].length > 0, true, 'provider endpoint was not called');
+    return m;
+  });
+}
+
+await scenario('copy and paste: nothing sent, reply restored (works offline)', async (page) => {
+  await page.goto(`${BASE}/?nano=off&gliner=off`);
+  await page.selectOption('[data-testid=task]', 'analyze');
+  await page.fill('[data-testid=content]', 'Remind Peter Novak at peter.novak@demo-mail.com about invoice 4111 1111 1111 1111.');
+  await page.selectOption('[data-testid=route-choice]', 'cloud');
+  await page.selectOption('[data-testid=provider]', 'copy');
+  await ctx.setOffline(true);
+  try {
+    await page.click('[data-testid=submit]');
+    await page.waitForSelector('[data-testid=confirm]');
+    const m = await markedTexts(page);
+    await page.click('[data-testid=send]');
+    await page.waitForSelector('[data-testid=paste]');
+    const masked = await page.locator('[data-testid=copy-text]').textContent();
+    for (const x of m) assert.ok(!masked.includes(x), `"${x}" visible in the text to copy`);
+    assert.ok(masked.includes('[EMAIL_1]') && masked.includes('[CARD_1]'));
+    await page.fill('[data-testid=paste-reply]', 'Sure: write to [EMAIL_1] about card [CARD_1] and [Card 1].');
+    await page.click('[data-testid=paste-restore]');
+    const answer = await page.locator('[data-testid=answer]').last().textContent();
+    assert.ok(answer.includes('peter.novak@demo-mail.com') && answer.includes('4111 1111 1111 1111'), `not restored: ${answer}`);
+    assert.deepEqual(await page.locator('[data-testid=invalid]').allTextContents(), ['[Card 1]']);
+    return [...m, 'Peter Novak'];
+  } finally {
+    await ctx.setOffline(false);
+  }
+});
+
 // Acceptance 5: receipts hold no text (read with emulator owner access, bypassing rules).
-const allMarked = ['Sarah Lin', 'sarah.lin@northwind-demo.com', '0912-345-678', 'A123456789', '王小明', 'Kevin Huang', 'jane.roe@demo-mail.com', 'Dana Whitfield'];
+const allMarked = ['Sarah Lin', 'sarah.lin@northwind-demo.com', '0912-345-678', 'A123456789', '王小明', 'Kevin Huang', 'jane.roe@demo-mail.com', 'Dana Whitfield',
+  'olivia.marsh@demo-mail.com', '0933-222-111', 'peter.novak@demo-mail.com', '4111 1111 1111 1111'];
 try {
   const res = await fetch(`http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/documents/receipts?pageSize=100`, { headers: { Authorization: 'Bearer owner' } });
   const dump = await res.text();
@@ -243,8 +368,13 @@ try {
 }
 
 // Every Gemini request body, across all scenarios, must be free of every marked original.
-const bodyLeaks = geminiBodies.flatMap((b) => allMarked.filter((s) => b.includes(s)));
-results.push({ name: 'all Gemini bodies free of marked originals', ok: bodyLeaks.length === 0, ...(bodyLeaks.length ? { error: bodyLeaks.join(', ') } : {}) });
+const bodyLeaks = [...geminiBodies, ...byokBodies.anthropic, ...byokBodies.xai].flatMap((b) => allMarked.filter((s) => b.includes(s)));
+// An API key may only ever travel to its own provider.
+const keyLeaks = requests.flatMap((r) => Object.entries(FAKE_KEYS)
+  .filter(([p, k]) => (r.url + r.body + r.headers).includes(k) && !r.url.includes(p === 'anthropic' ? 'api.anthropic.com' : 'api.x.ai'))
+  .map(([p]) => `${p} key in request to ${r.url.slice(0, 60)}`));
+results.push({ name: 'API keys only sent to their own provider', ok: keyLeaks.length === 0, ...(keyLeaks.length ? { error: keyLeaks.join('; ') } : {}) });
+results.push({ name: 'all cloud request bodies free of marked originals', ok: bodyLeaks.length === 0, ...(bodyLeaks.length ? { error: bodyLeaks.join(', ') } : {}) });
 
 await ctx.close();
 vite.kill();

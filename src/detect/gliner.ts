@@ -18,6 +18,21 @@ export const LABEL_TO_TYPE: Record<string, EntityType> = {
   'date of birth': 'DATE_OF_BIRTH',
   'medical condition': 'MEDICAL',
   money: 'FINANCIAL',
+  // Finer labels the PII model was trained on; they recover items the generic labels miss.
+  'first name': 'PERSON',
+  'last name': 'PERSON',
+  city: 'LOCATION',
+  state: 'LOCATION',
+  country: 'LOCATION',
+  'postal code': 'LOCATION',
+  'social security number': 'ID_NUMBER',
+  'passport number': 'ID_NUMBER',
+  "driver's license number": 'ID_NUMBER',
+  'tax identification number': 'ID_NUMBER',
+  'national id number': 'ID_NUMBER',
+  'health insurance id number': 'ID_NUMBER',
+  'medical record number': 'ID_NUMBER',
+  'license number': 'ID_NUMBER',
 };
 const LABELS = Object.keys(LABEL_TO_TYPE);
 
@@ -31,6 +46,20 @@ export const VARIANTS: Record<'fp16' | 'int8', GlinerVariant> = {
 };
 export const SLOW_CHUNK_MS = 10_000;
 
+/**
+ * fp16 only: the generic `person` and `organization` labels are right almost only at >= 0.9 on
+ * Latin-script text (dev sample: 3 right / 111 wrong below 0.9 for person, 4 / 59 for
+ * organization). CJK spans keep the base threshold: no evidence there.
+ */
+export const STRICT_LATIN_LABELS = new Set(['person', 'organization']);
+export const STRICT_LATIN_THRESHOLD = 0.9;
+
+export function passesScore(r: { spanText: string; label: string; score: number }, variant: GlinerVariant['name']): boolean {
+  if (variant !== 'fp16' || !STRICT_LATIN_LABELS.has(r.label)) return true;
+  if (/[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/.test(r.spanText)) return true;
+  return r.score >= STRICT_LATIN_THRESHOLD;
+}
+
 export async function pickVariant(): Promise<GlinerVariant> {
   const gpu = (navigator as Navigator & { gpu?: { requestAdapter(): Promise<unknown> } }).gpu;
   try {
@@ -41,13 +70,53 @@ export async function pickVariant(): Promise<GlinerVariant> {
   return VARIANTS.int8;
 }
 
-/** Drops stop-listed words and anything with no letters or digits. */
+// Role nouns and field labels the model tags as people/organizations/places in forms and contracts.
+const ROLE_WORDS = new Set([
+  'seller', 'buyer', 'employee', 'employees', 'employer', 'customer', 'customers', 'client', 'clients', 'patient',
+  'patients', 'user', 'users', 'supplier', 'vendor', 'tenant', 'landlord', 'applicant', 'recipient', 'sender',
+  'personnel', 'officer', 'staff', 'manager', 'team', 'member', 'members', 'party', 'parties', 'contractor',
+  'consultant', 'shipper', 'consignee', 'carrier', 'borrower', 'lender', 'insured', 'beneficiary', 'holder',
+  'representative', 'administrator', 'owner', 'guest', 'visitor', 'student', 'teacher', 'doctor', 'nurse',
+]);
+const FIELD_LABEL = /\b(name|address|number|no\.?|id|code|email|e-mail|phone|date|information|details)\s*:?$/i;
+const CJK_CHAR = /[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/;
+const digits = (s: string) => s.replace(/[^0-9０-９]/g, '').length;
+
+/**
+ * Drops model output that cannot be the thing its label says: stop-listed pronouns, role nouns
+ * ("Seller", "employees"), field labels ("Phone Number", "Company Address"), generic lowercase
+ * nouns tagged as organizations or places, and number-type items without digits.
+ */
 export function filterItems(items: RawItem[]): RawItem[] {
   return items.filter((i) => {
     const t = i.text.trim();
     if (!/[\p{L}\p{N}]/u.test(t)) return false;
     if (ZH_STOPLIST.has(t)) return false;
-    return true;
+    const cjk = CJK_CHAR.test(t);
+    switch (i.type) {
+      case 'EMAIL':
+        return t.includes('@');
+      case 'PHONE':
+      case 'CARD':
+      case 'ACCOUNT':
+      case 'ID_NUMBER':
+        return digits(t) >= 4;
+      case 'ADDRESS':
+      case 'DATE_OF_BIRTH':
+        return cjk || digits(t) >= 1;
+      case 'PERSON':
+      case 'ORG':
+      case 'LOCATION': {
+        if (cjk) return true;
+        if (FIELD_LABEL.test(t)) return false;
+        const tokens = t.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+        if (i.type === 'PERSON') return !tokens.some((w) => ROLE_WORDS.has(w));
+        if (tokens.length > 0 && tokens.every((w) => ROLE_WORDS.has(w))) return false;
+        return /[A-Z]/.test(t) || (i.type === 'LOCATION' && digits(t) >= 3); // proper nouns, or a postal code
+      }
+      default:
+        return true;
+    }
   });
 }
 
@@ -140,7 +209,8 @@ export class GlinerLayer implements DetectionLayer {
       this.onProgress(`fp16 took ${Math.round(elapsed)} ms, switching to int8`);
       this.loading = this.load(VARIANTS.int8);
     }
-    const items = results.flat().map((r) => ({ text: r.spanText, type: LABEL_TO_TYPE[r.label] ?? 'OTHER', reason: `gliner ${r.label} ${r.score.toFixed(2)}` }));
+    const variant = this.variant!.name;
+    const items = results.flat().filter((r) => passesScore(r, variant)).map((r) => ({ text: r.spanText, type: LABEL_TO_TYPE[r.label] ?? 'OTHER', reason: `gliner ${r.label} ${r.score.toFixed(2)}` }));
     return filterItems(items);
   }
 }

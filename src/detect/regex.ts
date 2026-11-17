@@ -56,6 +56,17 @@ export function isValidIban(raw: string): boolean {
 
 const digitsOf = (s: string) => s.replace(/\D/g, '');
 const ACCOUNT_CONTEXT = /(帳號|帳戶|账号|账户|戶號|account|acct|a\/c)/i;
+// Identifiers with no fixed format, recognized by the keyword right before them.
+const ID_KEYWORDS =
+  '護照(?:號碼)?|員工(?:編號|代號)|工號|學號|會員(?:編號|號碼)|病歷號碼?|保單號碼|健保卡號|' +
+  'passport(?: number| no\\.?)?|employee (?:id|number)|student (?:id|number)|member(?:ship)? (?:id|number)|' +
+  'policy number|medical record number|mrn';
+const KEYWORD_ID = new RegExp(
+  `(?<=(?:${ID_KEYWORDS})\\s*(?:為|是|[:：#])?\\s*)[A-Za-z0-9][A-Za-z0-9-]{5,19}(?![A-Za-z0-9-])`,
+  'gi',
+);
+const SWIFT_CONTEXT = /(swift|bic)/i;
+const ROUTING_CONTEXT = /(routing|aba)/i;
 const BIRTH_CONTEXT = /(生日|出生|誕生|生於|生年月日|born|birth|dob|d\.o\.b)/i;
 
 // Dates: western numeric, 西元/民國 with 年月日 (Arabic or Chinese numerals), English month names.
@@ -103,6 +114,32 @@ export const RECOGNIZERS: Recognizer[] = [
     type: 'ID_NUMBER',
     pattern: /(?<![A-Za-z0-9])[A-Za-z][A-Da-d0-9]\d{8}(?![A-Za-z0-9])/g,
     validate: (m) => isValidTwId(m),
+  },
+  {
+    // US Social Security number / ITIN format. Area 000, 666 and group 00, serial 0000 never issued.
+    name: 'us-ssn',
+    type: 'ID_NUMBER',
+    pattern: /(?<![\d-])(?!000|666)\d{3}-(?!00)\d{2}-(?!0000)\d{4}(?![\d-])/g,
+  },
+  {
+    // SWIFT/BIC: 8 or 11 characters, only with "SWIFT" or "BIC" within 30 chars before.
+    name: 'swift-bic',
+    type: 'ACCOUNT',
+    pattern: /(?<![A-Za-z0-9])[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}(?:[A-Z0-9]{3})?(?![A-Za-z0-9])/g,
+    validate: (_m, text, index) => SWIFT_CONTEXT.test(text.slice(Math.max(0, index - 30), index)),
+  },
+  {
+    // US bank routing number: 9 digits, only with "routing" or "ABA" within 30 chars before.
+    name: 'us-routing',
+    type: 'ACCOUNT',
+    pattern: /(?<![\d-])\d{9}(?![\d-])/g,
+    validate: (_m, text, index) => ROUTING_CONTEXT.test(text.slice(Math.max(0, index - 30), index)),
+  },
+  {
+    name: 'keyword-id',
+    type: 'ID_NUMBER',
+    pattern: KEYWORD_ID,
+    validate: (m) => digitsOf(m).length >= 4,
   },
   {
     // A date is only a date of birth when a birth word sits within 15 chars before or 6 after.

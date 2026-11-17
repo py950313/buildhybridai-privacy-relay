@@ -52,6 +52,12 @@ await ctx.route(/firebasevertexai\.googleapis\.com/, async (route) => {
   const warm = await ctx.newPage();
   await warm.goto(`${BASE}/?nano=off&gliner=off`);
   await warm.waitForSelector('[data-testid=tier]', { timeout: 120_000 });
+  // The profile is reused between runs but the Auth emulator is new each time: drop the stored
+  // anonymous session so every run starts signed out.
+  await warm.evaluate(() => new Promise((resolve) => {
+    const req = indexedDB.deleteDatabase('firebaseLocalStorageDb');
+    req.onsuccess = req.onerror = req.onblocked = () => resolve();
+  }));
   await warm.waitForTimeout(5000);
   await warm.reload();
   await warm.waitForSelector('[data-testid=tier]', { timeout: 120_000 });
@@ -106,9 +112,13 @@ async function send(page) {
 
 // The receipt write is async; wait for its outcome so closing the page does not cancel it.
 async function receiptSaved(page) {
-  await page.waitForFunction(() => /Statistics (saved|were not saved)/.test([...document.querySelectorAll('[data-testid=turn]')].at(-1)?.textContent ?? ''), null, { timeout: 30_000 });
-  const t = await page.locator('[data-testid=turn]').last().textContent();
-  assert.ok(t.includes('Statistics saved'), 'receipt statistics were not saved');
+  const turn = page.locator('[data-testid=turn]').last();
+  let state = 'pending';
+  for (let i = 0; i < 60 && state === 'pending'; i++) {
+    await page.waitForTimeout(500);
+    state = await turn.getAttribute('data-receipt');
+  }
+  assert.equal(state, 'saved', `receipt state after 30 s: ${state}`);
 }
 
 const EN = 'Hi team, Sarah Lin from Northwind Demo Ltd asked us to send the signed offer to sarah.lin@northwind-demo.com '

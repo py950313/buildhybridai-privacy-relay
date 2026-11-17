@@ -4,7 +4,7 @@
 //   (throws NotSupportedError in Chrome 157), or malformed model JSON crashes detection.
 // no_claim: anything about the real models; they cannot run under Node/Vitest.
 import { describe, expect, it } from 'vitest';
-import { filterItems, splitForModel } from './gliner';
+import { filterItems, passesScore, splitForModel } from './gliner';
 import { declaredLang, guessLang, parseItems, postFilter } from './nano';
 
 describe('gliner helpers', () => {
@@ -13,6 +13,23 @@ describe('gliner helpers', () => {
       { text: '我', type: 'PERSON' }, { text: '幫我', type: 'PERSON' }, { text: '王小明', type: 'PERSON' }, { text: '，', type: 'OTHER' },
     ]);
     expect(out.map((i) => i.text)).toEqual(['王小明']);
+  });
+  it('drops role nouns, field labels, generic lowercase nouns and digit-less numbers', () => {
+    const out = filterItems([
+      { text: 'Seller', type: 'PERSON' }, { text: 'maintenance personnel', type: 'PERSON' }, { text: 'sarah', type: 'PERSON' },
+      { text: 'Supplier Name', type: 'ORG' }, { text: 'patient portal', type: 'ORG' }, { text: 'Acme Logistics', type: 'ORG' },
+      { text: 'area', type: 'LOCATION' }, { text: 'Houston', type: 'LOCATION' }, { text: '台積電', type: 'ORG' },
+      { text: 'Phone Number', type: 'PHONE' }, { text: 'Email', type: 'EMAIL' }, { text: 'Delivery Address', type: 'ADDRESS' },
+      { text: '88 W Capitol Ave', type: 'ADDRESS' }, { text: 'ID Number', type: 'ID_NUMBER' }, { text: 'MRN 0002873546', type: 'ID_NUMBER' },
+    ]);
+    expect(out.map((i) => i.text)).toEqual(['sarah', 'Acme Logistics', 'Houston', '台積電', '88 W Capitol Ave', 'MRN 0002873546']);
+  });
+  it('fp16: Latin person/organization need 0.9; CJK and other labels keep the base threshold', () => {
+    expect(passesScore({ spanText: 'Instructor', label: 'person', score: 0.6 }, 'fp16')).toBe(false);
+    expect(passesScore({ spanText: 'Sarah Lin', label: 'person', score: 0.95 }, 'fp16')).toBe(true);
+    expect(passesScore({ spanText: '王小明', label: 'person', score: 0.4 }, 'fp16')).toBe(true);
+    expect(passesScore({ spanText: 'Houston', label: 'city', score: 0.6 }, 'fp16')).toBe(true);
+    expect(passesScore({ spanText: 'Instructor', label: 'person', score: 0.05 }, 'int8')).toBe(true);
   });
   it('splits long text into pieces under the token cap without losing text', () => {
     const text = '這是測試句子，內容不重要。'.repeat(100);

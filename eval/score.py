@@ -56,7 +56,13 @@ def dedupe(preds):
 def score(gold_docs, pred_docs):
     c = defaultdict(int)
     fam = defaultdict(lambda: defaultdict(int))
+    # Scope = the families this dataset annotates. A prediction of any other family (our MEDICAL and
+    # FINANCIAL on Nemotron; Presidio's URL, IP and plain dates) is not scored unless it hits a gold span.
+    scope = {g["family"] for d in gold_docs.values() for g in d["gold"]}
     for doc_id, d in gold_docs.items():
+        if doc_id not in pred_docs:
+            continue  # system was run on a subset (the slow Nano configuration)
+        c["docs"] += 1
         text = d["text"]
         preds = dedupe(pred_docs[doc_id]["preds"])
         for g in d["gold"]:
@@ -84,8 +90,8 @@ def score(gold_docs, pred_docs):
         for p in preds:
             on_gold = any(overlaps(p, g) for g in d["gold"])
             on_ignored = any(overlaps(p, g) for g in d["ignored"])
-            if not on_gold and on_ignored:
-                continue  # out-of-scope label: neither right nor wrong
+            if not on_gold and (on_ignored or p["family"] not in scope):
+                continue  # out-of-scope label or family: neither right nor wrong
             c["pred"] += 1
             c["pred_ok"] += on_gold
             c["pred_exact"] += any(trim(text, p) == trim(text, g) and same_family(p, g) for g in d["gold"])
@@ -126,6 +132,8 @@ for lang, title in [("en", "English: NVIDIA Nemotron-PII test split, 300 documen
         ep, er, ef = prf(c["exact"], c["gold"], c["pred_exact"], c["pred"])
         sr = c["s_found"] / c["s_gold"] if c["s_gold"] else 0
         sf = c["s_full"] / c["s_gold"] if c["s_gold"] else 0
+        if c["docs"] < len(gold):
+            name = f"{name} (first {c['docs']} documents only)"
         lines.append(f"| {name} | {pct(op)} | {pct(orr)} | {pct(of)} | {pct(c['full'] / c['gold'])} | {pct(ep)} | {pct(er)} | {pct(ef)} | {pct(sr)} / {pct(sf)} |")
         fams[name] = fam
         summary[(lang, key)] = {"overlap_f1": of, "exact_f1": ef, "structured_recall": sr, "structured_full": sf, "overlap_recall": orr}
@@ -138,7 +146,8 @@ for lang, title in [("en", "English: NVIDIA Nemotron-PII test split, 300 documen
         cells = []
         for n in names:
             x = fams[n][f]
-            cells.append(f"{pct(x['found'] / g)} / {pct(x['full'] / g)} / {pct(x['exact'] / g)}" if g else "-")
+            xg = x["gold"]
+            cells.append(f"{pct(x['found'] / xg)} / {pct(x['full'] / xg)} / {pct(x['exact'] / xg)}" if xg else "-")
         lines.append(f"| {f} | {g} | " + " | ".join(cells) + " |")
     lines.append("")
 

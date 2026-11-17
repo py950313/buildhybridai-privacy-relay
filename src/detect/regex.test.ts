@@ -74,6 +74,16 @@ const EXTRA: Case[] = [
   ['請寄到台北市大安區和平東路一段 999 號 8 樓，謝謝', 'ADDRESS', '台北市大安區和平東路一段 999 號 8 樓'],
   ['地址 106臺北市大安區新生南路三段12巷3弄5號', 'ADDRESS', '106臺北市大安區新生南路三段12巷3弄5號'],
   ['高雄市苓雅區四維三路2號', 'ADDRESS', '高雄市苓雅區四維三路2號'],
+  ['My social security number is 545-15-0837.', 'ID_NUMBER', '545-15-0837'],
+  ['Order 000-15-0837 shipped', null], // area 000 is never issued
+  ['Please use the swift bic ZXLMUS7K123 for the transfer', 'ACCOUNT', 'ZXLMUS7K123'],
+  ['The reference code ZXLMUS7K123 is attached', null], // no SWIFT/BIC context
+  ['Bank Routing Number: 312201347', 'ACCOUNT', '312201347'],
+  ['Ticket 312201347 was closed', null],
+  ['護照號碼 300123456 的旅客', 'ID_NUMBER', '300123456'],
+  ['員工編號：E20231188', 'ID_NUMBER', 'E20231188'],
+  ['Passport number: X1234567 expires soon', 'ID_NUMBER', 'X1234567'],
+  ['護照照片請用白底', null], // keyword without an identifier after it
   ['台北市今天很熱', null],
   ['住在和平東路 999 號', null], // no city: model layers' job
 ];

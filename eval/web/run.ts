@@ -23,7 +23,7 @@ const api = {
     const r = await detect(text, { layers });
     return {
       ms: Math.round(performance.now() - t),
-      preds: r.mentions.map((m) => ({ start: m.start, end: m.end, family: FAMILY[m.type] ?? m.type, type: m.type, source: m.source })),
+      preds: r.mentions.map((m) => ({ start: m.start, end: m.end, family: FAMILY[m.type] ?? m.type, type: m.type, source: m.source, reason: m.reason })),
       unlocated: r.unlocated.length,
       warnings: r.warnings,
     };

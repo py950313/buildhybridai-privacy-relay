@@ -19,7 +19,8 @@ const info = await page.evaluate(() => window.evalApi.init());
 console.log('engine', JSON.stringify(info), 'config', config);
 
 for (const lang of langs.length ? langs : ['en', 'zh']) {
-  const docs = readFileSync(new URL(`./data/${lang}.jsonl`, import.meta.url), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+  const docs = readFileSync(new URL(`./data/${lang}.jsonl`, import.meta.url), 'utf8').trim().split('\n').map((l) => JSON.parse(l))
+    .slice(0, Number(process.env.LIMIT || Infinity)); // LIMIT=100 for the slow Nano configuration
   const out = createWriteStream(new URL(`./out/engine_${config}_${lang}.jsonl`, import.meta.url));
   let totalMs = 0;
   let warnings = 0;

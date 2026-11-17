@@ -17,7 +17,17 @@ export type ReceiptStats = {
   latencyMs: number;
 };
 
-export async function saveReceipt(r: ReceiptStats): Promise<void> {
+const SAVE_TIMEOUT_MS = 15_000;
+
+/** Rejects if the write has not been acknowledged in time, so the UI never waits forever. */
+export function saveReceipt(r: ReceiptStats): Promise<void> {
+  return Promise.race([
+    write(r),
+    new Promise<void>((_, reject) => setTimeout(() => reject(new Error('receipt write timed out')), SAVE_TIMEOUT_MS)),
+  ]);
+}
+
+async function write(r: ReceiptStats): Promise<void> {
   const user = await ensureSignedIn();
   await addDoc(collection(db, 'receipts'), {
     uid: user.uid,

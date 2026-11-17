@@ -1,0 +1,25 @@
+LUMEN HEALTH CLINIC - ANNUAL HEALTH CHECK REPORT
+
+Patient: Emily Ross
+Date of birth: 12 March 1984
+Patient ID: A812345671
+Phone: +1 415 555 2671
+Address: 221B Baker Street, London
+Attending physician: Dr. Raj Patel
+
+Measurements
+Height 165 cm, weight 78 kg, BMI 28.7 (reference 18.5-24.9)
+Blood pressure 142/91 mmHg (reference below 120/80)
+
+Blood tests
+Fasting glucose 118 mg/dL (reference 70-99)
+HbA1c 6.2 % (reference below 5.7)
+Total cholesterol 236 mg/dL (reference below 200)
+LDL cholesterol 158 mg/dL (reference below 130)
+HDL cholesterol 41 mg/dL (reference above 50)
+Triglycerides 210 mg/dL (reference below 150)
+ALT 52 U/L (reference 7-40)
+Creatinine 0.8 mg/dL (reference 0.5-1.1)
+
+Notes
+Patient reports a family history of type 2 diabetes. Currently takes no medication.

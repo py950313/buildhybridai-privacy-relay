@@ -1,7 +1,7 @@
 // What this browser can do. Drives the status bar and which detection layers run.
 import { GlinerLayer, pickVariant, type GlinerVariant } from '../detect/gliner';
 import { NanoLayer } from '../detect/nano';
-import type { DetectionLayer } from '../detect/types';
+import type { DetectionLayer, EntityType } from '../detect/types';
 
 export type NanoState = 'absent' | 'unavailable' | 'downloadable' | 'downloading' | 'available';
 
@@ -51,10 +51,10 @@ export function glinerLayer(onProgress: (m: string) => void): GlinerLayer {
   return gliner;
 }
 
-export function detectionLayers(o: { glinerReady: boolean; nanoReady: boolean; zh: boolean }): DetectionLayer[] {
+export function detectionLayers(o: { glinerReady: boolean; nanoReady: boolean; zh: boolean; focus?: EntityType[] }): DetectionLayer[] {
   const layers: DetectionLayer[] = [];
   if (o.glinerReady && gliner) layers.push(gliner);
-  if (o.nanoReady) layers.push(new NanoLayer({ zhEnabled: o.zh }));
+  if (o.nanoReady) layers.push(new NanoLayer({ zhEnabled: o.zh, focus: o.focus }));
   return layers;
 }
 

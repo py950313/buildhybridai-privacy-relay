@@ -109,10 +109,12 @@ export class NanoLayer implements DetectionLayer {
   private sessions = new Map<string, Promise<LMSession>>();
   private readonly zhEnabled: boolean;
   private readonly timeoutMs: number;
+  private readonly system: string;
 
-  constructor(opts: { zhEnabled: boolean; timeoutMs?: number }) {
+  constructor(opts: { zhEnabled: boolean; timeoutMs?: number; focus?: EntityType[] }) {
     this.zhEnabled = opts.zhEnabled;
     this.timeoutMs = opts.timeoutMs ?? 30_000;
+    this.system = opts.focus?.length ? `${SYSTEM} Look especially carefully for: ${opts.focus.join(', ')}.` : SYSTEM;
   }
 
   private base(lang: string): Promise<LMSession> {
@@ -120,7 +122,7 @@ export class NanoLayer implements DetectionLayer {
     if (!s) {
       const api = lm();
       if (!api) return Promise.reject(new Error('Prompt API not available'));
-      s = api.create({ ...io(lang), initialPrompts: [{ role: 'system', content: SYSTEM }] });
+      s = api.create({ ...io(lang), initialPrompts: [{ role: 'system', content: this.system }] });
       this.sessions.set(lang, s);
     }
     return s;

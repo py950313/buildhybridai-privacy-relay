@@ -2,6 +2,7 @@ import type { ChatSession } from 'firebase/ai';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import './App.css';
 import { PRODUCT_NAME } from './config/product';
+import type { ScenarioId } from './config/scenarios';
 import { estimateTokens } from './detect/chunk';
 import { detect } from './detect/engine';
 import { guessLang } from './detect/nano';
@@ -16,9 +17,10 @@ import {
   setGlinerConsent, tierOf, type NanoState,
 } from './services/capabilities';
 import { DEFAULT_CONFIG, loadConfig, type AppConfig } from './services/config';
-import { saveReceipt, type ReceiptStats, type Scenario } from './services/receipts';
+import { saveReceipt, type ReceiptStats } from './services/receipts';
 import { Composer, type RouteChoice } from './ui/Composer';
 import { Confirm } from './ui/Confirm';
+import { LangContext, translate, type UiLang } from './ui/i18n';
 import { StatusBar, type GlinerState } from './ui/StatusBar';
 import { TurnView, type Turn } from './ui/TurnView';
 
@@ -32,6 +34,14 @@ function describeError(e: unknown): string {
   return `The request failed: ${msg.slice(0, 200)}`;
 }
 
+function initialLang(): UiLang {
+  try {
+    return localStorage.getItem('ui-lang') === 'zh' ? 'zh' : 'en';
+  } catch {
+    return 'en';
+  }
+}
+
 export default function App() {
   const [config, setConfig] = useState<AppConfig>(DEFAULT_CONFIG);
   const [nano, setNano] = useState<NanoState>('absent');
@@ -42,7 +52,13 @@ export default function App() {
   const [glinerMsg, setGlinerMsg] = useState('');
   const [online, setOnline] = useState(navigator.onLine);
 
-  const [scenario, setScenario] = useState<Scenario>('email');
+  const [uiLang, setUiLangState] = useState<UiLang>(initialLang);
+  const t = (s: string, v?: Record<string, string | number>) => translate(uiLang, s, v);
+  const setUiLang = (l: UiLang) => {
+    setUiLangState(l);
+    try { localStorage.setItem('ui-lang', l); } catch { /* private mode */ }
+  };
+  const [scenario, setScenarioState] = useState<ScenarioId>('email');
   const [task, setTask] = useState<Task>('rewrite');
   const [target, setTarget] = useState<OutLang>('en');
   const [instruction, setInstruction] = useState('');
@@ -59,6 +75,12 @@ export default function App() {
   const chat = useRef<ChatSession | null>(null);
   const turnId = useRef(0);
 
+  const cfg = config.scenarios[scenario];
+  const setScenario = (s: ScenarioId) => {
+    setScenarioState(s);
+    setTask(config.scenarios[s].defaultTask);
+    setChoice('auto');
+  };
   const nanoReady = nano === 'available';
   const glinerReady = gliner === 'ready';
   const tier = tierOf(glinerReady, nanoReady);
@@ -91,11 +113,12 @@ export default function App() {
   const lang = guessLang(body);
   const routeInput = { tokens: estimateTokens(body), lang, nanoReady, maxTokens: config.localRouteMaxTokens, translateTarget: target };
   const decision = useMemo(() => {
+    if (cfg.forceCloud) return { route: 'cloud' as Route, reason: 'This scenario always masks the text and uses the cloud model.' };
     if (task === 'custom' && nanoReady) {
       return { route: 'local' as Route, reason: 'Custom instruction: classified on this device when you run it' };
     }
     return decideRoute({ ...routeInput, task: task === 'custom' ? 'analyze' : task });
-  }, [task, nanoReady, routeInput.tokens, lang, target, config.localRouteMaxTokens]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [task, nanoReady, routeInput.tokens, lang, target, config.localRouteMaxTokens, cfg.forceCloud]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const addTurn = (t: Omit<Turn, 'id'>) => {
     const id = ++turnId.current;
@@ -127,7 +150,7 @@ export default function App() {
     setError('');
     setPhase('detecting');
     try {
-      const layers = detectionLayers({ glinerReady, nanoReady, zh: config.nanoZhDetection });
+      const layers = detectionLayers({ glinerReady, nanoReady, zh: config.nanoZhDetection, focus: cfg.extraTypes });
       const r = await detect(p.body, { layers, chunkTokens: config.detectChunkTokens, overlapTokens: config.detectOverlapTokens });
       setDraft(draftFrom(r));
       setPending(p);
@@ -140,8 +163,8 @@ export default function App() {
 
   async function submit() {
     setError('');
-    let route = choice === 'auto' ? decision.route : choice;
-    if (task === 'custom' && choice === 'auto' && nanoReady) {
+    let route = cfg.forceCloud ? 'cloud' : choice === 'auto' ? decision.route : choice;
+    if (!cfg.forceCloud && task === 'custom' && choice === 'auto' && nanoReady) {
       setPhase('running');
       route = decideRoute({ ...routeInput, task: await classifyTask(instruction) }).route;
     }
@@ -162,7 +185,7 @@ export default function App() {
     }
     let out;
     try {
-      out = prepareOutgoing(draft, table, (b) => (pending.kind === 'first' ? buildPrompt(pending.task, b, pending.target) : b));
+      out = prepareOutgoing(draft, table, (b) => (pending.kind === 'first' ? buildPrompt(pending.task, b, pending.target, cfg.analyzeInstruction) : b));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       return;
@@ -170,14 +193,15 @@ export default function App() {
     setPhase('sending');
     const sentPlaceholders = placeholdersIn(out.masked, out.table);
     const kept = out.table.filter((e) => sentPlaceholders.includes(e.placeholder));
-    const model = scenario === 'contract' || scenario === 'health' ? config.cloudModelComplex : config.cloudModelDefault;
+    const model = cfg.model === 'complex' ? config.cloudModelComplex : config.cloudModelDefault;
+    const disclaimer = cfg.disclaimer?.[uiLang];
     const t0 = performance.now();
     setTable(out.table);
     try {
       chat.current ??= startCloudChat(model);
       const resp = await sendCloud(chat.current, out.masked);
       const latencyMs = performance.now() - t0;
-      const id = addTurn({ route: 'cloud', provider: model, input: pending.body, sent: out.masked, kept, latencyMs,
+      const id = addTurn({ route: 'cloud', provider: model, input: pending.body, sent: out.masked, kept, latencyMs, disclaimer,
         output: restore(resp, out.table, sentPlaceholders) });
       record(id, { scenario, route: 'cloud', provider: 'gemini', maskedCounts: countByType(out.mentions), inputChars: pending.body.length, latencyMs });
     } catch (e) {
@@ -206,6 +230,7 @@ export default function App() {
   const lastCloud = last?.route === 'cloud' && !last.error;
 
   return (
+    <LangContext.Provider value={uiLang}>
     <div className="app">
       <StatusBar
         tier={tier} nano={nano} nanoProgress={nanoProgress}
@@ -217,18 +242,18 @@ export default function App() {
           );
         }}
         gliner={gliner} glinerVariant={glinerVariant} glinerSizeMB={glinerSize} glinerMsg={glinerMsg} onDownloadGliner={startGliner}
-        online={online} onClear={clearAll}
+        online={online} onClear={clearAll} uiLang={uiLang} setUiLang={setUiLang}
       />
       <main>
         <h1>{PRODUCT_NAME}</h1>
-        <p className="muted">Use AI on private text. Short tasks run on this device; everything else is masked here first and restored here after.</p>
-        {error && <p className="error" data-testid="error">{error}</p>}
+        <p className="muted">{t('Use AI on private text. Short tasks run on this device; everything else is masked here first and restored here after.')}</p>
+        {error && <p className="error" data-testid="error">{t(error)}</p>}
 
         {turns.length === 0 && phase !== 'confirm' && (
           <Composer
             task={task} setTask={setTask} target={target} setTarget={setTarget}
             instruction={instruction} setInstruction={setInstruction} content={content} setContent={setContent}
-            scenario={scenario} setScenario={setScenario} decision={decision} choice={choice} setChoice={setChoice}
+            scenario={scenario} setScenario={setScenario} scenarios={config.scenarios} uiLang={uiLang} decision={decision} choice={choice} setChoice={setChoice}
             localAllowed={nanoReady} online={online} busy={phase !== 'idle'} onSubmit={submit}
           />
         )}
@@ -239,14 +264,14 @@ export default function App() {
               ? () => startDetection({ kind: 'first', task, target, body: t.input }) : undefined} />
         ))}
 
-        {phase === 'detecting' && <p className="muted" data-testid="detecting">Looking for private details on this device…</p>}
-        {phase === 'running' && <p className="muted">Working on this device…</p>}
-        {phase === 'sending' && <p className="muted" data-testid="sending">Sending masked text…</p>}
+        {phase === 'detecting' && <p className="muted" data-testid="detecting">{t('Looking for private details on this device…')}</p>}
+        {phase === 'running' && <p className="muted">{t('Working on this device…')}</p>}
+        {phase === 'sending' && <p className="muted" data-testid="sending">{t('Sending masked text…')}</p>}
 
         {phase === 'confirm' && draft && (
           <Confirm
             draft={draft} setDraft={setDraft} table={pending?.kind === 'followup' ? table : []}
-            tierNote={tier === 'manual' ? 'Manual mode: only fixed formats (IDs, phones, emails, cards, addresses) are found automatically; mark names yourself.' : null}
+            manualMode={tier === 'manual'}
             online={online} busy={false} onSend={send}
             onCancel={() => { setDraft(null); setPhase('idle'); }}
           />
@@ -255,18 +280,19 @@ export default function App() {
         {lastCloud && phase === 'idle' && (
           <section className="followup">
             <textarea rows={3} value={followup} onChange={(e) => setFollowup(e.target.value)} data-testid="followup"
-              placeholder="Ask a follow-up (checked and masked the same way)" />
+              placeholder={t('Ask a follow-up (checked and masked the same way)')} />
             <div className="row">
               <button className="primary" disabled={!followup.trim() || !online} data-testid="followup-submit"
                 onClick={() => startDetection({ kind: 'followup', task: 'custom', target, body: followup })}>
-                Find private details
+                {t('Find private details')}
               </button>
-              <button onClick={clearAll}>New task</button>
+              <button onClick={clearAll}>{t('New task')}</button>
             </div>
           </section>
         )}
-        {turns.length > 0 && !lastCloud && phase === 'idle' && <button onClick={clearAll} data-testid="new-task">New task</button>}
+        {turns.length > 0 && !lastCloud && phase === 'idle' && <button onClick={clearAll} data-testid="new-task">{t('New task')}</button>}
       </main>
     </div>
+    </LangContext.Provider>
   );
 }

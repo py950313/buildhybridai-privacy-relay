@@ -46,6 +46,18 @@ await ctx.route(/firebasevertexai\.googleapis\.com/, async (route) => {
   });
 });
 
+// Warm-up: the first load after a source change makes Vite re-bundle dependencies and reload the
+// page, which would break whichever scenario runs first.
+{
+  const warm = await ctx.newPage();
+  await warm.goto(`${BASE}/?nano=off&gliner=off`);
+  await warm.waitForSelector('[data-testid=tier]', { timeout: 120_000 });
+  await warm.waitForTimeout(5000);
+  await warm.reload();
+  await warm.waitForSelector('[data-testid=tier]', { timeout: 120_000 });
+  await warm.close();
+}
+
 const results = [];
 async function scenario(name, fn) {
   const start = requests.length;

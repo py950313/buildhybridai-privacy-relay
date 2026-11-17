@@ -1,6 +1,7 @@
 import { fetchAndActivate, getValue } from 'firebase/remote-config';
 import { remoteConfig } from '../config/firebase';
 import { REMOTE_CONFIG_DEFAULTS } from '../config/remoteConfigDefaults';
+import { resolveScenarios, SCENARIO_DEFAULTS, type ScenarioConfig, type ScenarioId } from '../config/scenarios';
 
 export type AppConfig = {
   cloudModelDefault: string;
@@ -9,6 +10,7 @@ export type AppConfig = {
   detectChunkTokens: number;
   detectOverlapTokens: number;
   nanoZhDetection: boolean;
+  scenarios: Record<ScenarioId, ScenarioConfig>;
 };
 
 export const DEFAULT_CONFIG: AppConfig = {
@@ -18,6 +20,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   detectChunkTokens: REMOTE_CONFIG_DEFAULTS.detect_chunk_tokens,
   detectOverlapTokens: REMOTE_CONFIG_DEFAULTS.detect_overlap_tokens,
   nanoZhDetection: REMOTE_CONFIG_DEFAULTS.nano_zh_detection_enabled,
+  scenarios: SCENARIO_DEFAULTS,
 };
 
 /** Fetches Remote Config; on any failure (offline, no template yet) the bundled defaults apply. */
@@ -34,5 +37,6 @@ export async function loadConfig(): Promise<AppConfig> {
     detectChunkTokens: getValue(remoteConfig, 'detect_chunk_tokens').asNumber(),
     detectOverlapTokens: getValue(remoteConfig, 'detect_overlap_tokens').asNumber(),
     nanoZhDetection: getValue(remoteConfig, 'nano_zh_detection_enabled').asBoolean(),
+    scenarios: resolveScenarios(getValue(remoteConfig, 'scenarios').asString()),
   };
 }

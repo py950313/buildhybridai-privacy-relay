@@ -27,7 +27,7 @@ export function decideRoute(i: RouteInput): RouteDecision {
   if (i.task === 'translate' && !NANO_LANGS.includes(i.translateTarget ?? 'en')) {
     return { route: 'cloud', reason: 'The on-device model cannot write the target language' };
   }
-  if (i.tokens > i.maxTokens) return { route: 'cloud', reason: `Longer than ${i.maxTokens} tokens` };
+  if (i.tokens > i.maxTokens) return { route: 'cloud', reason: 'Too long for the on-device model' };
   return { route: 'local', reason: 'Short, supported task: runs on this device, nothing is sent' };
 }
 

@@ -1,0 +1,20 @@
+SERVICE AGREEMENT
+
+This Service Agreement ("Agreement") is entered into on 3 March 2027 between Northwind Demo Ltd, with its registered office at 221B Baker Street, London ("Client"), and Priya Raman, an independent consultant ("Consultant").
+
+1. Services. The Consultant will provide data migration services for the Client's billing system as described in Schedule A.
+
+2. Fees. The Client will pay the Consultant a fixed fee of $48,000, payable in three instalments of $16,000 each. Payment will be made by bank transfer to IBAN GB82 WEST 1234 5698 7654 32 within 45 days of each invoice.
+
+3. Term and termination. This Agreement runs for six months. The Client may terminate at any time on 7 days' written notice. The Consultant may terminate only for non-payment that continues for 60 days after the due date.
+
+4. Liability. The Consultant is liable for all direct and indirect losses arising from the services, without limit. The Client's liability is limited to the fees paid in the preceding month.
+
+5. Intellectual property. All work product, including pre-existing tools the Consultant uses, becomes the exclusive property of the Client upon creation.
+
+6. Non-compete. For 24 months after termination, the Consultant will not provide similar services to any company in the logistics or retail sector worldwide.
+
+7. Notices. Notices must be sent to legal@northwind-demo.com or to the Consultant at priya.raman@consult-demo.io, phone +44 20 7946 0958.
+
+Signed: Mark Ellis, Director, Northwind Demo Ltd
+Signed: Priya Raman

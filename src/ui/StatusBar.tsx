@@ -1,4 +1,5 @@
 import type { NanoState, Tier } from '../services/capabilities';
+import { useT, type UiLang } from './i18n';
 
 export type GlinerState = 'disabled' | 'needs-consent' | 'loading' | 'ready' | 'failed';
 
@@ -14,6 +15,8 @@ type Props = {
   onDownloadGliner: () => void;
   online: boolean;
   onClear: () => void;
+  uiLang: UiLang;
+  setUiLang: (l: UiLang) => void;
 };
 
 const TIER_TEXT: Record<Tier, string> = {
@@ -23,35 +26,40 @@ const TIER_TEXT: Record<Tier, string> = {
 };
 
 export function StatusBar(p: Props) {
+  const t = useT();
   return (
     <header className="status" data-testid="status">
-      <span className={`tier tier-${p.tier}`} data-testid="tier">{TIER_TEXT[p.tier]}</span>
-      <span className="cap">
-        On-device AI:{' '}
-        {p.nano === 'available' && 'ready'}
-        {p.nano === 'absent' && 'not in this browser'}
-        {p.nano === 'unavailable' && 'not supported on this device'}
+      <span className={`tier tier-${p.tier}`} data-testid="tier" data-tier={p.tier}>{t(TIER_TEXT[p.tier])}</span>
+      <span className="cap" data-testid="nano-state" data-state={p.nano}>
+        {t('On-device AI:')}{' '}
+        {p.nano === 'available' && t('ready')}
+        {p.nano === 'absent' && t('not in this browser')}
+        {p.nano === 'unavailable' && t('not supported on this device')}
         {(p.nano === 'downloadable' || p.nano === 'downloading') && (
           p.nanoProgress !== null
-            ? `downloading ${Math.round(p.nanoProgress * 100)}%`
-            : <button onClick={p.onPrepareNano}>Prepare on-device model</button>
+            ? t('downloading {p}%', { p: Math.round(p.nanoProgress * 100) })
+            : <button onClick={p.onPrepareNano}>{t('Prepare on-device model')}</button>
         )}
       </span>
-      <span className="cap">
-        Detection model:{' '}
-        {p.gliner === 'disabled' && 'off'}
-        {p.gliner === 'ready' && `ready (${p.glinerVariant})`}
-        {p.gliner === 'loading' && (p.glinerMsg || 'loading…')}
-        {p.gliner === 'failed' && 'could not load: manual mode'}
+      <span className="cap" data-testid="gliner-state" data-state={p.gliner}>
+        {t('Detection model:')}{' '}
+        {p.gliner === 'disabled' && t('off')}
+        {p.gliner === 'ready' && t('ready ({v})', { v: p.glinerVariant ?? '' })}
+        {p.gliner === 'loading' && (p.glinerMsg || t('loading…'))}
+        {p.gliner === 'failed' && t('could not load: manual mode')}
         {p.gliner === 'needs-consent' && (
           <button onClick={p.onDownloadGliner} data-testid="gliner-download">
-            Download ({p.glinerSizeMB ?? '…'} MB, once)
+            {t('Download ({mb} MB, once)', { mb: p.glinerSizeMB ?? '…' })}
           </button>
         )}
       </span>
-      <span className={`cap ${p.online ? '' : 'offline'}`}>{p.online ? 'Online' : 'Offline: cloud disabled'}</span>
-      <button className="clear" onClick={p.onClear} data-testid="clear" title="Forget the text and the placeholder table">
-        Clear
+      <span className={`cap ${p.online ? '' : 'offline'}`}>{t(p.online ? 'Online' : 'Offline: cloud disabled')}</span>
+      <select className="lang" value={p.uiLang} onChange={(e) => p.setUiLang(e.target.value as UiLang)} data-testid="ui-lang" aria-label="Language">
+        <option value="en">English</option>
+        <option value="zh">中文</option>
+      </select>
+      <button className="clear" onClick={p.onClear} data-testid="clear" title={t('Forget the text and the placeholder table')}>
+        {t('Clear')}
       </button>
     </header>
   );

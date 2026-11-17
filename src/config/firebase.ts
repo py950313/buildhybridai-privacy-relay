@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { connectAuthEmulator, getAuth, signInAnonymously } from 'firebase/auth';
+import { connectAuthEmulator, getAuth, signInAnonymously, signOut } from 'firebase/auth';
 import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
 import { getRemoteConfig } from 'firebase/remote-config';
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
@@ -41,7 +41,17 @@ if (import.meta.env.VITE_USE_EMULATORS === 'true') {
 export const remoteConfig = getRemoteConfig(app);
 remoteConfig.defaultConfig = REMOTE_CONFIG_DEFAULTS;
 
+/** Anonymous sign-in. A stored session whose token can no longer be refreshed is replaced. */
 export async function ensureSignedIn() {
-  if (!auth.currentUser) await signInAnonymously(auth);
+  await auth.authStateReady();
+  if (auth.currentUser) {
+    try {
+      await auth.currentUser.getIdToken();
+      return auth.currentUser;
+    } catch {
+      await signOut(auth);
+    }
+  }
+  await signInAnonymously(auth);
   return auth.currentUser!;
 }

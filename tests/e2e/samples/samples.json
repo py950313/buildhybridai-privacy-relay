@@ -1,0 +1,14 @@
+[
+  { "file": "email-en-short.txt", "scenario": "email", "task": "rewrite", "expectRoute": "local",
+    "mustHide": ["Tom Becker", "tom.becker@acme-logistics-demo.com", "+1 415 555 2671"] },
+  { "file": "email-zh-long.txt", "scenario": "email", "task": "rewrite", "expectRoute": "cloud",
+    "mustHide": ["林美玲", "張志豪", "王小明", "012-34-567890-1", "0912-345-678", "meiling.lin@hongda-demo.com.tw", "台北市大安區和平東路一段 999 號 8 樓"] },
+  { "file": "contract-en.txt", "scenario": "contract", "task": "analyze", "expectRoute": "cloud",
+    "mustHide": ["Priya Raman", "Mark Ellis", "GB82 WEST 1234 5698 7654 32", "legal@northwind-demo.com", "priya.raman@consult-demo.io", "+44 20 7946 0958"] },
+  { "file": "contract-zh.txt", "scenario": "contract", "task": "analyze", "expectRoute": "cloud",
+    "mustHide": ["李建國", "陳俊宇", "A123456789", "F234567898", "台北市大安區和平東路一段 999 號 8 樓", "012-34-567890-1", "0912-345-678", "0987-654-321", "chunyu.chen@mail-demo.tw"] },
+  { "file": "health-en.txt", "scenario": "health", "task": "analyze", "expectRoute": "cloud",
+    "mustHide": ["Emily Ross", "12 March 1984", "A812345671", "+1 415 555 2671", "Raj Patel"] },
+  { "file": "health-zh.txt", "scenario": "health", "task": "analyze", "expectRoute": "cloud",
+    "mustHide": ["林美玲", "A123456789", "民國七十三年三月十二日", "0912-345-678", "台北市大安區和平東路一段 999 號 8 樓", "張志豪"] }
+]

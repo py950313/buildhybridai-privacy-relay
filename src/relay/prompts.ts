@@ -26,9 +26,10 @@ export function taskInstruction(task: Exclude<Task, 'custom'>, target?: OutLang)
  * The text that is sent. For preset tasks the instruction is ours (no user data); for a custom
  * task the user's instruction is part of the detected-and-masked input.
  */
-export function buildPrompt(task: Task, body: string, target?: OutLang): string {
+export function buildPrompt(task: Task, body: string, target?: OutLang, analyzeInstruction?: string): string {
   if (task === 'custom') return body;
-  return `${taskInstruction(task, target)}\n\n---\n${body}`;
+  const instruction = task === 'analyze' && analyzeInstruction ? analyzeInstruction : taskInstruction(task, target);
+  return `${instruction}\n\n---\n${body}`;
 }
 
 /** Custom tasks: the user's instruction and the content are detected and masked together. */

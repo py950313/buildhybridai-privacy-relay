@@ -1,0 +1,53 @@
+{
+  "parameters": {
+    "cloud_model_default": {
+      "defaultValue": {
+        "value": "gemini-3.5-flash-lite"
+      },
+      "description": "Cloud model for ordinary tasks",
+      "valueType": "STRING"
+    },
+    "cloud_model_complex": {
+      "defaultValue": {
+        "value": "gemini-3.5-flash"
+      },
+      "description": "Cloud model for contract and health scenarios",
+      "valueType": "STRING"
+    },
+    "local_route_max_tokens": {
+      "defaultValue": {
+        "value": "3000"
+      },
+      "description": "Longest input kept on the device",
+      "valueType": "NUMBER"
+    },
+    "detect_chunk_tokens": {
+      "defaultValue": {
+        "value": "1500"
+      },
+      "description": "Detection chunk size",
+      "valueType": "NUMBER"
+    },
+    "detect_overlap_tokens": {
+      "defaultValue": {
+        "value": "200"
+      },
+      "description": "Detection chunk overlap",
+      "valueType": "NUMBER"
+    },
+    "nano_zh_detection_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Send Chinese to Nano declared as English for detection",
+      "valueType": "BOOLEAN"
+    },
+    "scenarios": {
+      "defaultValue": {
+        "value": "{}"
+      },
+      "description": "Per-scenario prompts and extra types (bundled defaults apply when empty)",
+      "valueType": "JSON"
+    }
+  }
+}

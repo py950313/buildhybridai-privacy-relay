@@ -18,19 +18,15 @@ const firebaseConfig = {
 
 export const app = initializeApp(firebaseConfig);
 
-// App Check. In development, set VITE_APPCHECK_DEBUG=true in .env.local (never committed);
-// the SDK then prints a debug token to register in the Firebase console.
-// Provider for the deployed build: reCAPTCHA Enterprise (Fraud Defense). Its site key goes in
-// VITE_RECAPTCHA_ENTERPRISE_SITE_KEY; until it exists App Check stays off outside debug mode.
+// App Check: reCAPTCHA Enterprise (site key is public, in .env). For automated or local testing,
+// put a registered debug token in .env.local as VITE_APPCHECK_DEBUG_TOKEN (never committed).
 const siteKey = import.meta.env.VITE_RECAPTCHA_ENTERPRISE_SITE_KEY as string | undefined;
-if (import.meta.env.VITE_APPCHECK_DEBUG === 'true') {
-  (self as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN: boolean }).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+const debugToken = import.meta.env.DEV ? (import.meta.env.VITE_APPCHECK_DEBUG_TOKEN as string | undefined) : undefined;
+if (debugToken) {
+  (self as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN: string }).FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken;
 }
-if (siteKey || import.meta.env.VITE_APPCHECK_DEBUG === 'true') {
-  initializeAppCheck(app, {
-    provider: new ReCaptchaEnterpriseProvider(siteKey ?? 'debug-only'),
-    isTokenAutoRefreshEnabled: true,
-  });
+if (siteKey) {
+  initializeAppCheck(app, { provider: new ReCaptchaEnterpriseProvider(siteKey), isTokenAutoRefreshEnabled: true });
 }
 
 export const auth = getAuth(app);

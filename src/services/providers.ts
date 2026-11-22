@@ -13,7 +13,7 @@ import { sendCloud, startCloudChat } from './ai';
 export type ProviderId = 'gemini' | 'anthropic' | 'xai' | 'copy';
 export const DIRECT_PROVIDERS: readonly ProviderId[] = ['gemini', 'anthropic', 'xai'];
 
-export const DEFAULT_MODELS = { anthropic: 'claude-opus-5-5', xai: 'grok-4' } as const;
+export const DEFAULT_MODELS = { anthropic: 'claude-opus-5-5', xai: 'grok-4.7' } as const;
 
 export interface CloudChat {
   readonly provider: ProviderId;

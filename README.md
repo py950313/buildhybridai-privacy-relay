@@ -63,9 +63,13 @@ Every modern browser can use the app; what changes is how much happens on the de
 | Detection model not downloaded or failed | No | Rules + the user's own marks | Masked text only |
 
 Tested so far: Chrome 157 on Windows with all three tiers (the lower tiers by switching layers
-off). Safari, Firefox and phones have not been tested on real devices yet; the app picks the tier
-from what the browser reports, and falls back to the rules-only tier if the detection model fails
-to load.
+off), and Playwright's Firefox 157 build on Windows through the work-email scenario
+(`tests/e2e/firefox-scenario1.mjs`). In Firefox the fp16 detection model fails to start on WebGPU,
+so the app falls back to int8 on WASM; the flow completes and nothing marked is sent, but int8 is
+weaker on Chinese names (in the Chinese sample it missed two names and marked one too widely, so
+the user has to fix those on the confirm screen). Safari and phones have not been tested on real
+devices yet; the app picks the tier from what the browser reports, and falls back to the
+rules-only tier if the detection model fails to load.
 
 ### Firebase products used
 

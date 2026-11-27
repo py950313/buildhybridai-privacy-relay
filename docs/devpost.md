@@ -1,7 +1,10 @@
 # Devpost submission draft
 
-Paste each section into the matching Devpost field. Replace "Privacy Relay" everywhere once the
-product name is final (also `src/config/product.ts`, `index.html`, README).
+Paste each section into the matching Devpost field.
+
+## Project name
+
+Stand-In
 
 ## Tagline (one line)
 
@@ -17,7 +20,7 @@ send it only a version with the private details taken out.
 
 ## What it does
 
-Privacy Relay runs in the browser between the user and the cloud model.
+Stand-In runs in the browser between the user and the cloud model.
 
 1. **If the device can answer, nothing leaves it.** Short rewrite, shorten, translate and summarize
    tasks run on Gemini Nano through Firebase AI Logic hybrid inference (`ONLY_ON_DEVICE`).
@@ -89,7 +92,7 @@ Taiwan's Personal Data Protection Act, including what is not covered.
   their place.
 - A privacy claim needs a test that can fail, so ours checks real network payloads.
 
-## What's next for Privacy Relay
+## What's next for Stand-In
 
 - Test on real iPhone Safari and Android devices, and on release builds of Firefox and Safari.
 - Make fp16 detection work on Firefox's WebGPU, or ship a stronger WASM model for Chinese.

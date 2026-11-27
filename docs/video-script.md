@@ -6,7 +6,6 @@ Recording notes
 - Second device: iPhone with Safari, mirrored or filmed, for the cross-device segment.
 - All text shown is synthetic. Paste it from the blocks below; do not type real names.
 - Voice-over is written to be read at a calm pace (about 140 words per minute). Times are targets.
-- Product name: replace "Privacy Relay" once the name is decided.
 
 ---
 
@@ -20,7 +19,7 @@ else's server. Many people simply don't use AI for this work at all.
 
 ## 0:20 - 0:45 Local first: the device answers, nothing is sent
 
-**Screen:** Privacy Relay. Point at the status bar: "Full: on-device AI + private detection".
+**Screen:** Stand-In. Point at the status bar: "Full: on-device AI + private detection".
 Task "Rewrite", paste the short email, the badge shows "On this device". Press run. DevTools
 Network panel docked at the bottom stays empty while the answer appears.
 
@@ -28,7 +27,7 @@ Network panel docked at the bottom stays empty while the answer appears.
 hi Karen, sorry for late reply. Tom Becker from Acme Logistics still didnt send the Q3 invoice, can u ping him at tom.becker@acme-logistics-demo.com or his cell +1 415 555 2671? we need it before friday. thx
 ```
 
-**Voice:** Privacy Relay starts local. Short rewrites, summaries and translations run on Gemini
+**Voice:** Stand-In starts local. Short rewrites, summaries and translations run on Gemini
 Nano, right in Chrome, through Firebase AI Logic. The network panel stays empty. Nothing left this
 laptop.
 
@@ -79,21 +78,21 @@ the reply back.
 
 **Screen:** the evaluation table from the README, highlighted rows.
 
-| | Privacy Relay | Microsoft Presidio |
+| | Stand-In | Microsoft Presidio |
 |---|---|---|
 | English, 299 documents (NVIDIA Nemotron-PII) | 92.4% F1 | 83.8% |
 | Traditional Chinese | 89.7% F1 | 72.4% |
 | Phones, emails, IDs, cards, accounts found | 96.7% / 100% | 86.9% / 64.3% |
 
 **Voice:** We measured it against Microsoft Presidio, a widely used open-source PII detector, on
-held-out data. Privacy Relay finds more of the private details, in English and especially in
+held-out data. Stand-In finds more of the private details, in English and especially in
 Chinese, and the full method and its limits are in the repository.
 
 ## 2:45 - 2:55 Close
 
 **Screen:** logo / name, URL, GitHub link.
 
-**Voice:** Privacy Relay. Use AI on private text, without giving the private parts away.
+**Voice:** Stand-In. Use AI on private text, without giving the private parts away.
 Built with Firebase AI Logic, Gemini Nano and Gemini.
 
 ---
@@ -104,4 +103,4 @@ Checklist before upload
 - [ ] Numbers on screen match `eval/report.md` at recording time. Do not claim higher precision:
       on the Chinese texts our precision (82.6%) is below Presidio's (90.4%).
 - [ ] The iPhone segment matches what the phone actually showed.
-- [ ] Product name and URL updated everywhere.
+- [x] Product name updated everywhere (Stand-In); the URL stays the same.

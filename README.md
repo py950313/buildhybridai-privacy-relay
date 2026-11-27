@@ -1,9 +1,9 @@
-# Privacy Relay (working title)
+# Stand-In
 
 **Use cloud AI on private text without handing over the private parts.**
 
 People paste work email, contracts and health reports into chatbots every day, and those texts
-carry names, phone numbers, ID numbers, account numbers and diagnoses. Privacy Relay sits between
+carry names, phone numbers, ID numbers, account numbers and diagnoses. Stand-In sits between
 the user and the cloud model, inside the browser:
 
 1. **If the device can answer, nothing leaves it.** Short rewrite, shorten, translate and summarize

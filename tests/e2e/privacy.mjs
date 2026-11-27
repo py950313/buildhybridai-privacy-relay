@@ -377,8 +377,8 @@ results.push({ name: 'API keys only sent to their own provider', ok: keyLeaks.le
 results.push({ name: 'all cloud request bodies free of marked originals', ok: bodyLeaks.length === 0, ...(bodyLeaks.length ? { error: bodyLeaks.join(', ') } : {}) });
 
 await ctx.close();
-vite.kill();
 // Synchronous: an async kill can lose the race with process.exit and leave Vite running.
+// No vite.kill() first: it kills only the shell, so taskkill /T then misses the orphaned Vite.
 spawnSync('taskkill', ['/pid', String(vite.pid), '/T', '/F'], { stdio: 'ignore' });
 console.log(JSON.stringify({ geminiRequests: geminiBodies.length, totalRequests: requests.length, results }, null, 1));
 process.exit(results.every((r) => r.ok) ? 0 : 1);
